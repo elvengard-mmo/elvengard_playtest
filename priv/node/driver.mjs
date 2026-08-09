@@ -149,6 +149,28 @@ const handlers = {
     return true
   },
 
+  async "context.add_init_script"(params) {
+    const context = fetchObject(contexts, params.context_id, "context")
+    await context.addInitScript({content: params.source})
+    return true
+  },
+
+  async "context.tracing_start"(params) {
+    const context = fetchObject(contexts, params.context_id, "context")
+    await context.tracing.start({
+      screenshots: params.screenshots ?? true,
+      snapshots: params.snapshots ?? true,
+      sources: params.sources ?? true,
+    })
+    return true
+  },
+
+  async "context.tracing_stop"(params) {
+    const context = fetchObject(contexts, params.context_id, "context")
+    await context.tracing.stop({path: params.path})
+    return params.path
+  },
+
   async "page.new"(params) {
     const context = fetchObject(contexts, params.context_id, "context")
     const page = await context.newPage()
@@ -185,7 +207,13 @@ const handlers = {
   },
 
   async "page.evaluate"(params) {
-    const result = await pageFor(params).evaluate(params.expression, params.argument)
+    const result = await pageFor(params).evaluate(
+      async ({expression, argument}) => {
+        const evaluated = globalThis.eval(expression)
+        return typeof evaluated === "function" ? await evaluated(argument) : evaluated
+      },
+      {expression: params.expression, argument: params.argument},
+    )
     return result === undefined ? null : result
   },
 

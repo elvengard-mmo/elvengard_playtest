@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Context do
   Represents an isolated Playwright browser context, normally one game player.
   """
 
-  alias ElvenGard.Playtest.{Browser, Options, Page}
+  alias ElvenGard.Playtest.{Browser, Options, Page, Probe}
   alias ElvenGard.Playtest.Driver.Node
 
   @type t :: %__MODULE__{browser: Browser.t(), driver: pid(), id: String.t()}
@@ -26,6 +26,33 @@ defmodule ElvenGard.Playtest.Context do
 
   @spec new_page(t()) :: {:ok, Page.t()} | {:error, Node.error()}
   def new_page(%__MODULE__{} = context), do: Page.new(context)
+
+  @spec install_probe(t()) :: :ok | {:error, Node.error()}
+  def install_probe(%__MODULE__{} = context) do
+    case Node.command(context.driver, "context.add_init_script", %{
+           "context_id" => context.id,
+           "source" => Probe.source()
+         }) do
+      {:ok, true} -> :ok
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @spec start_tracing(t(), Keyword.t()) :: :ok | {:error, Node.error()}
+  def start_tracing(%__MODULE__{} = context, opts \\ []) do
+    params = opts |> Options.encode() |> Map.put("context_id", context.id)
+
+    case Node.command(context.driver, "context.tracing_start", params) do
+      {:ok, true} -> :ok
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @spec stop_tracing(t(), Keyword.t()) :: {:ok, Path.t()} | {:error, Node.error()}
+  def stop_tracing(%__MODULE__{} = context, opts) do
+    params = opts |> Options.encode() |> Map.put("context_id", context.id)
+    Node.command(context.driver, "context.tracing_stop", params)
+  end
 
   @spec close(t()) :: :ok | {:error, Node.error()}
   def close(%__MODULE__{} = context) do
