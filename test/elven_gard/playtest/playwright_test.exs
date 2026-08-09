@@ -49,6 +49,11 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, context} = Context.new(browser, viewport: %{width: 800, height: 600})
     assert {:ok, page} = Page.new(context)
     assert {:ok, %{status: nil}} = Page.visit(page, data_url(@html))
+    assert {:ok, true} = Page.visible?(page, "#join")
+    assert {:ok, "Join"} = Page.text(page, "#join")
+    assert {:ok, "join"} = Page.attribute(page, "#join", "id")
+    assert {:ok, 1} = Page.count(page, "canvas")
+    assert {:ok, true} = Page.wait_for_selector(page, "#game")
 
     assert {:ok, true} = Page.click(page, "#join")
     assert {:ok, true} = Page.key_down(page, "KeyD")

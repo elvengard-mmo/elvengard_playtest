@@ -206,6 +206,30 @@ const handlers = {
     return true
   },
 
+  async "locator.visible"(params) {
+    return pageFor(params).locator(params.selector).isVisible()
+  },
+
+  async "locator.text"(params) {
+    return pageFor(params).locator(params.selector).textContent()
+  },
+
+  async "locator.attribute"(params) {
+    return pageFor(params).locator(params.selector).getAttribute(params.name)
+  },
+
+  async "locator.count"(params) {
+    return pageFor(params).locator(params.selector).count()
+  },
+
+  async "locator.wait_for"(params) {
+    await pageFor(params).locator(params.selector).waitFor({
+      state: params.state,
+      timeout: params.timeout,
+    })
+    return true
+  },
+
   async "page.evaluate"(params) {
     const result = await pageFor(params).evaluate(
       async ({expression, argument}) => {

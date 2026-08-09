@@ -50,6 +50,33 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "page.fill", [], %{"selector" => selector, "value" => value})
   end
 
+  @spec visible?(t(), String.t()) :: {:ok, boolean()} | {:error, Node.error()}
+  def visible?(%__MODULE__{} = page, selector) when is_binary(selector) do
+    command(page, "locator.visible", [], %{"selector" => selector})
+  end
+
+  @spec text(t(), String.t()) :: {:ok, String.t() | nil} | {:error, Node.error()}
+  def text(%__MODULE__{} = page, selector) when is_binary(selector) do
+    command(page, "locator.text", [], %{"selector" => selector})
+  end
+
+  @spec attribute(t(), String.t(), String.t()) ::
+          {:ok, String.t() | nil} | {:error, Node.error()}
+  def attribute(%__MODULE__{} = page, selector, name)
+      when is_binary(selector) and is_binary(name) do
+    command(page, "locator.attribute", [], %{"selector" => selector, "name" => name})
+  end
+
+  @spec count(t(), String.t()) :: {:ok, non_neg_integer()} | {:error, Node.error()}
+  def count(%__MODULE__{} = page, selector) when is_binary(selector) do
+    command(page, "locator.count", [], %{"selector" => selector})
+  end
+
+  @spec wait_for_selector(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def wait_for_selector(%__MODULE__{} = page, selector, opts \\ []) when is_binary(selector) do
+    command(page, "locator.wait_for", opts, %{"selector" => selector})
+  end
+
   @spec evaluate(t(), String.t(), Jason.Encoder.value()) ::
           {:ok, Jason.Encoder.value()} | {:error, Node.error()}
   def evaluate(%__MODULE__{} = page, expression, argument \\ nil) when is_binary(expression) do
