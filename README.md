@@ -81,7 +81,7 @@ end
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
 
-Playtest runs at most four browser features concurrently by default while the
+Playtest runs at most two browser processes concurrently by default while the
 rest wait without disabling ExUnit async execution. Override it per suite with
 `max_concurrency: 2` or globally with
 `config :elvengard_playtest, max_concurrency: 2`.

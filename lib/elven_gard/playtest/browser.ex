@@ -3,24 +3,29 @@ defmodule ElvenGard.Playtest.Browser do
   Owns one Playwright browser process shared by isolated test contexts.
   """
 
-  alias ElvenGard.Playtest.{Options, Context}
+  alias ElvenGard.Playtest.{Concurrency, Context, Options}
   alias ElvenGard.Playtest.Driver.Node
 
-  @type t :: %__MODULE__{driver: pid(), id: String.t(), name: atom()}
-  defstruct [:driver, :id, :name]
+  @type t :: %__MODULE__{driver: pid(), id: String.t(), name: atom(), owner: pid()}
+  defstruct [:driver, :id, :name, :owner]
 
   ## Public API
 
   @spec launch(pid(), Keyword.t()) :: {:ok, t()} | {:error, Node.error()}
   def launch(driver, opts \\ []) do
+    owner = self()
+    {limit, opts} = Keyword.pop(opts, :max_concurrency, Concurrency.default_limit())
     browser_name = Keyword.get(opts, :browser, :chromium)
     params = opts |> Keyword.put(:browser, browser_name) |> Options.encode()
+    :ok = Concurrency.ensure_started()
+    :ok = Concurrency.checkout(Concurrency, limit)
 
-    case Node.command(driver, "browser.launch", params) do
+    case Node.command(driver, "browser.launch", params, 30_000) do
       {:ok, %{"browser_id" => id}} ->
-        {:ok, %__MODULE__{driver: driver, id: id, name: browser_name}}
+        {:ok, %__MODULE__{driver: driver, id: id, name: browser_name, owner: owner}}
 
       {:error, error} ->
+        :ok = Concurrency.checkin(Concurrency, owner)
         {:error, error}
     end
   end
@@ -32,9 +37,13 @@ defmodule ElvenGard.Playtest.Browser do
 
   @spec close(t()) :: :ok | {:error, Node.error()}
   def close(%__MODULE__{} = browser) do
-    case Node.command(browser.driver, "browser.close", %{"browser_id" => browser.id}) do
-      {:ok, true} -> :ok
-      {:error, error} -> {:error, error}
-    end
+    result =
+      case Node.command(browser.driver, "browser.close", %{"browser_id" => browser.id}) do
+        {:ok, true} -> :ok
+        {:error, error} -> {:error, error}
+      end
+
+    :ok = Concurrency.checkin(Concurrency, browser.owner)
+    result
   end
 end

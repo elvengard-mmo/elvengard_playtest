@@ -82,9 +82,7 @@ defmodule ElvenGard.Playtest.ProbeTest do
     {:ok, browser} =
       Browser.launch(driver,
         browser: :chromium,
-        executable_path:
-          System.find_executable("google-chrome-stable") ||
-            raise("A Chrome executable is required for Playtest integration tests"),
+        executable_path: System.get_env("PLAYTEST_BROWSER_PATH"),
         headless: true,
         args: ["--no-sandbox"]
       )

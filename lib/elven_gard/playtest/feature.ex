@@ -6,7 +6,7 @@ defmodule ElvenGard.Playtest.Feature do
   the captured browser event stream for every simulated player.
   """
 
-  alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
+  alias ElvenGard.Playtest.{Browser, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
 
   defmacro __using__(opts) do
@@ -60,12 +60,6 @@ defmodule ElvenGard.Playtest.Feature do
 
   @spec setup(map(), Keyword.t()) :: {:ok, map()}
   def setup(_test_context, opts) do
-    owner = self()
-    limit = Keyword.get(opts, :max_concurrency, Concurrency.default_limit())
-    :ok = Concurrency.ensure_started()
-    :ok = Concurrency.checkout(Concurrency, limit)
-    ExUnit.Callbacks.on_exit(fn -> Concurrency.checkin(Concurrency, owner) end)
-
     collector = ExUnit.Callbacks.start_supervised!({EventCollector, owner: self()})
 
     driver =
@@ -130,6 +124,7 @@ defmodule ElvenGard.Playtest.Feature do
       browser: Keyword.get(opts, :browser, :chromium),
       executable_path: Keyword.get(opts, :executable_path) || default_browser_path(),
       headless: Keyword.get(opts, :headless, true),
+      max_concurrency: Keyword.get(opts, :max_concurrency, 2),
       args:
         Keyword.get(opts, :browser_args, [
           "--no-sandbox",
@@ -165,10 +160,7 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   defp default_browser_path() do
-    System.get_env("PLAYTEST_BROWSER_PATH") ||
-      System.find_executable("google-chrome-stable") ||
-      System.find_executable("google-chrome") ||
-      System.find_executable("chromium")
+    System.get_env("PLAYTEST_BROWSER_PATH")
   end
 
   defp failure_event?(%{name: "page.error"}), do: true

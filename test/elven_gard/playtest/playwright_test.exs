@@ -36,7 +36,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, browser} =
              Browser.launch(driver,
                browser: :chromium,
-               executable_path: chrome_path(),
+               executable_path: System.get_env("PLAYTEST_BROWSER_PATH"),
                headless: true,
                args: [
                  "--no-sandbox",
@@ -71,12 +71,6 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert File.stat!(screenshot).size > 0
 
     assert :ok = Browser.close(browser)
-  end
-
-  defp chrome_path() do
-    System.find_executable("google-chrome-stable") ||
-      System.find_executable("google-chrome") ||
-      raise "A Chrome executable is required for Playtest integration tests"
   end
 
   defp data_url(html) do
