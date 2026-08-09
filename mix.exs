@@ -4,7 +4,7 @@ defmodule ElvenGard.Playtest.MixProject do
   def project do
     [
       app: :elvengard_playtest,
-      version: "0.1.0",
+      version: "0.1.1",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -16,6 +16,7 @@ defmodule ElvenGard.Playtest.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {ElvenGard.Playtest.Application, []},
       extra_applications: [:logger]
     ]
   end

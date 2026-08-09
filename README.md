@@ -9,6 +9,7 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 - real Chromium, Firefox and WebKit browsers;
 - independent `key_down` / `key_up` and precise pointer input;
 - isolated multi-player sessions in one feature;
+- bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
 - console errors, page crashes and WebSocket frame events;
 - screenshots, Playwright traces and event logs on failure;
@@ -79,6 +80,11 @@ end
 ```
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
+
+Playtest runs at most four browser features concurrently by default while the
+rest wait without disabling ExUnit async execution. Override it per suite with
+`max_concurrency: 2` or globally with
+`config :elvengard_playtest, max_concurrency: 2`.
 
 ## Runtime overrides
 

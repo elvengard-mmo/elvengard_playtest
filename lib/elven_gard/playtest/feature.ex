@@ -6,7 +6,7 @@ defmodule ElvenGard.Playtest.Feature do
   the captured browser event stream for every simulated player.
   """
 
-  alias ElvenGard.Playtest.{Browser, Context, EventCollector, Player, Suite}
+  alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
 
   defmacro __using__(opts) do
@@ -60,6 +60,11 @@ defmodule ElvenGard.Playtest.Feature do
 
   @spec setup(map(), Keyword.t()) :: {:ok, map()}
   def setup(_test_context, opts) do
+    owner = self()
+    limit = Keyword.get(opts, :max_concurrency, Concurrency.default_limit())
+    :ok = Concurrency.checkout(Concurrency, limit)
+    ExUnit.Callbacks.on_exit(fn -> Concurrency.checkin(Concurrency, owner) end)
+
     collector = ExUnit.Callbacks.start_supervised!({EventCollector, owner: self()})
 
     driver =
