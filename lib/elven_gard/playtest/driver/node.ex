@@ -129,6 +129,9 @@ defmodule ElvenGard.Playtest.Driver.Node do
       {:ok, %{"event" => "driver.ready", "params" => %{"protocol" => version}}} ->
         {:error, {:unsupported_protocol, version}}
 
+      {:ok, %{"event" => "driver.fatal", "params" => params}} ->
+        {:error, {:driver_fatal, params}}
+
       {:ok, message} ->
         {:error, {:invalid_ready_message, message}}
 

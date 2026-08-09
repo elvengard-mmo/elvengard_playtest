@@ -1,0 +1,9 @@
+{
+  "name": "@elvengard/playtest-driver",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "playwright": "1.61.0"
+  }
+}
