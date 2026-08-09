@@ -4,6 +4,11 @@ import readline from "node:readline"
 const protocolVersion = 1
 const require = createRequire(import.meta.url)
 
+process.stdout.on("error", error => {
+  if (error.code === "EPIPE") process.exit(0)
+  throw error
+})
+
 function write(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`)
 }
