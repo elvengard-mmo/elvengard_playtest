@@ -124,7 +124,7 @@ defmodule ElvenGard.Playtest.Feature do
       browser: Keyword.get(opts, :browser, :chromium),
       executable_path: Keyword.get(opts, :executable_path) || default_browser_path(),
       headless: Keyword.get(opts, :headless, true),
-      max_concurrency: Keyword.get(opts, :max_concurrency, 2),
+      max_concurrency: Keyword.get(opts, :max_concurrency, 1),
       args:
         Keyword.get(opts, :browser_args, [
           "--no-sandbox",

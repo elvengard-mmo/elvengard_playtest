@@ -6,7 +6,7 @@ defmodule ElvenGard.Playtest.Concurrency do
 
   use GenServer
 
-  @default_limit 2
+  @default_limit 1
 
   ## Public API
 
