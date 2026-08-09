@@ -48,8 +48,8 @@ defmodule ElvenGard.Playtest.Context do
     end
   end
 
-  @spec stop_tracing(t(), Keyword.t()) :: {:ok, Path.t()} | {:error, Node.error()}
-  def stop_tracing(%__MODULE__{} = context, opts) do
+  @spec stop_tracing(t(), Keyword.t()) :: {:ok, Path.t() | nil} | {:error, Node.error()}
+  def stop_tracing(%__MODULE__{} = context, opts \\ []) do
     params = opts |> Options.encode() |> Map.put("context_id", context.id)
     Node.command(context.driver, "context.tracing_stop", params)
   end

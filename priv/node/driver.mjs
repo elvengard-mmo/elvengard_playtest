@@ -296,7 +296,7 @@ lines.on("line", async line => {
     }
 
     const result = await handler(request.params || {})
-    write({id: request.id, result})
+    write({id: request.id, result: result === undefined ? null : result})
   } catch (error) {
     write({id: request?.id ?? null, error: serializeError(error)})
   }
