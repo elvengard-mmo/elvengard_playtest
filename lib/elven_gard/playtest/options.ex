@@ -5,13 +5,19 @@ defmodule ElvenGard.Playtest.Options do
 
   @spec encode(Keyword.t()) :: map()
   def encode(options) do
-    Map.new(options, fn {key, value} -> {Atom.to_string(key), encode_value(value)} end)
+    Enum.reduce(options, %{}, fn
+      {_key, nil}, encoded -> encoded
+      {key, value}, encoded -> Map.put(encoded, Atom.to_string(key), encode_value(value))
+    end)
   end
 
   ## Private functions
 
   defp encode_value(value) when is_map(value) do
-    Map.new(value, fn {key, item} -> {to_string(key), encode_value(item)} end)
+    Enum.reduce(value, %{}, fn
+      {_key, nil}, encoded -> encoded
+      {key, item}, encoded -> Map.put(encoded, to_string(key), encode_value(item))
+    end)
   end
 
   defp encode_value(value) when is_list(value), do: Enum.map(value, &encode_value/1)

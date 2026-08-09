@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Driver.Playwright do
   Starts the bundled Node sidecar backed by Playwright's public JavaScript API.
   """
 
-  alias ElvenGard.Playtest.Driver.Node
+  alias ElvenGard.Playtest.{Driver.Node, Installation}
 
   @type option ::
           {:driver_path, Path.t()}
@@ -32,7 +32,8 @@ defmodule ElvenGard.Playtest.Driver.Playwright do
       end)
 
     env =
-      case Keyword.get(opts, :playwright_path) || System.get_env("PLAYTEST_PLAYWRIGHT_PATH") do
+      case Keyword.get(opts, :playwright_path) || System.get_env("PLAYTEST_PLAYWRIGHT_PATH") ||
+             Installation.playwright_path() do
         nil -> %{}
         path -> %{"PLAYTEST_PLAYWRIGHT_PATH" => Path.expand(path)}
       end

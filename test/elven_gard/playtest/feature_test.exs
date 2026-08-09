@@ -13,7 +13,9 @@ defmodule ElvenGard.Playtest.FeatureTest do
         </script>
         """),
     playwright_path:
-      System.get_env("PLAYTEST_PLAYWRIGHT_PATH") || "/usr/lib/node_modules/playwright",
+      System.get_env("PLAYTEST_PLAYWRIGHT_PATH") ||
+        ElvenGard.Playtest.Installation.playwright_path() ||
+        "/usr/lib/node_modules/playwright",
     executable_path: System.find_executable("google-chrome-stable")
 
   alias ElvenGard.Playtest.{Page, Probe}

@@ -71,7 +71,9 @@ defmodule ElvenGard.Playtest.ProbeTest do
       {Playwright,
        owner: self(),
        playwright_path:
-         System.get_env("PLAYTEST_PLAYWRIGHT_PATH") || "/usr/lib/node_modules/playwright",
+         System.get_env("PLAYTEST_PLAYWRIGHT_PATH") ||
+           ElvenGard.Playtest.Installation.playwright_path() ||
+           "/usr/lib/node_modules/playwright",
        node_path: System.find_executable("node")}
     )
   end

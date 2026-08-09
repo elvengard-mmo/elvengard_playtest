@@ -79,6 +79,8 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
   end
 
   defp playwright_path() do
-    System.get_env("PLAYTEST_PLAYWRIGHT_PATH") || "/usr/lib/node_modules/playwright"
+    System.get_env("PLAYTEST_PLAYWRIGHT_PATH") ||
+      ElvenGard.Playtest.Installation.playwright_path() ||
+      "/usr/lib/node_modules/playwright"
   end
 end

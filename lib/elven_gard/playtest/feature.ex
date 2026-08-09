@@ -162,8 +162,7 @@ defmodule ElvenGard.Playtest.Feature do
     System.get_env("PLAYTEST_BROWSER_PATH") ||
       System.find_executable("google-chrome-stable") ||
       System.find_executable("google-chrome") ||
-      System.find_executable("chromium") ||
-      raise "Playtest could not find a Chromium browser executable"
+      System.find_executable("chromium")
   end
 
   defp failure_event?(%{name: "page.error"}), do: true
