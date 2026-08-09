@@ -26,10 +26,16 @@ Add the Git dependency while the library is under active development:
  runtime: false}
 ```
 
-Install the pinned Node runtime and Chromium once:
+Install the pinned Playwright runtime and Chromium once:
 
 ```shell
 MIX_ENV=test mix playtest.install
+```
+
+On a fresh Linux CI runner, install Chromium's system dependencies too:
+
+```shell
+MIX_ENV=test mix playtest.install --with-deps
 ```
 
 This writes only to the user cache. It does not add frontend manifests or `node_modules` to the Phoenix application.

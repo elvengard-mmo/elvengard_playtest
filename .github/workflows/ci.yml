@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: "22"
       - run: mix deps.get
-      - run: mix playtest.install
+      - run: mix playtest.install --with-deps
       - run: mix format --check-formatted
       - run: mix compile --warnings-as-errors
       - run: mix test

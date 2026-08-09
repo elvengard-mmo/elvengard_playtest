@@ -5,6 +5,7 @@ defmodule Mix.Tasks.Playtest.Install do
       mix playtest.install
       mix playtest.install --browser firefox
       mix playtest.install --browser all
+      mix playtest.install --with-deps
       mix playtest.install --skip-browser
 
   Installation happens in the user cache and never creates `package.json`, a
@@ -16,7 +17,7 @@ defmodule Mix.Tasks.Playtest.Install do
   alias ElvenGard.Playtest.Installation
 
   @shortdoc "Installs the pinned Playwright runtime used by Playtest"
-  @switches [browser: :string, skip_browser: :boolean]
+  @switches [browser: :string, skip_browser: :boolean, with_deps: :boolean]
 
   ## Mix.Task callbacks
 
@@ -37,7 +38,7 @@ defmodule Mix.Tasks.Playtest.Install do
 
     unless opts[:skip_browser] do
       browser = Keyword.get(opts, :browser, "chromium")
-      install_browsers!(cache_dir, browser)
+      install_browsers!(cache_dir, browser, opts[:with_deps] || false)
     end
 
     Mix.shell().info("Playtest runtime installed in #{cache_dir}")
@@ -53,13 +54,17 @@ defmodule Mix.Tasks.Playtest.Install do
     )
   end
 
-  defp install_browsers!(cache_dir, "all") do
-    install_browsers!(cache_dir, "chromium firefox webkit")
+  defp install_browsers!(cache_dir, "all", with_deps?) do
+    install_browsers!(cache_dir, "chromium firefox webkit", with_deps?)
   end
 
-  defp install_browsers!(cache_dir, browsers) do
+  defp install_browsers!(cache_dir, browsers, with_deps?) do
     executable = Path.join([cache_dir, "node_modules", ".bin", "playwright"])
-    run_command!(executable, ["install" | String.split(browsers)], cache_dir, "install_browsers")
+
+    arguments =
+      ["install"] ++ if(with_deps?, do: ["--with-deps"], else: []) ++ String.split(browsers)
+
+    run_command!(executable, arguments, cache_dir, "install_browsers")
   end
 
   defp run_command!(executable, arguments, directory, stage) do
