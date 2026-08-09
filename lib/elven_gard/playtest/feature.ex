@@ -62,6 +62,7 @@ defmodule ElvenGard.Playtest.Feature do
   def setup(_test_context, opts) do
     owner = self()
     limit = Keyword.get(opts, :max_concurrency, Concurrency.default_limit())
+    :ok = Concurrency.ensure_started()
     :ok = Concurrency.checkout(Concurrency, limit)
     ExUnit.Callbacks.on_exit(fn -> Concurrency.checkin(Concurrency, owner) end)
 

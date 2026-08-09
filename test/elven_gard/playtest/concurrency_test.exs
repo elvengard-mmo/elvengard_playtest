@@ -3,6 +3,11 @@ defmodule ElvenGard.Playtest.ConcurrencyTest do
 
   alias ElvenGard.Playtest.Concurrency
 
+  test "can be started lazily by runtime-disabled test dependencies" do
+    assert :ok = Concurrency.ensure_started()
+    assert is_pid(Process.whereis(Concurrency))
+  end
+
   test "queues browser owners fairly at the requested capacity" do
     gate = start_supervised!({Concurrency, name: nil})
     assert :ok = Concurrency.checkout(gate, 1)

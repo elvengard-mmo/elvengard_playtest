@@ -25,6 +25,14 @@ defmodule ElvenGard.Playtest.Concurrency do
     GenServer.call(server, {:checkout, limit}, :infinity)
   end
 
+  @spec ensure_started() :: :ok
+  def ensure_started() do
+    case GenServer.start(__MODULE__, :ok, name: __MODULE__) do
+      {:ok, _pid} -> :ok
+      {:error, {:already_started, _pid}} -> :ok
+    end
+  end
+
   @spec checkin(GenServer.server(), pid()) :: :ok
   def checkin(server \\ __MODULE__, owner \\ self()) when is_pid(owner) do
     GenServer.call(server, {:checkin, owner})
