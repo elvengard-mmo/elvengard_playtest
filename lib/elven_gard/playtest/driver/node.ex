@@ -64,8 +64,12 @@ defmodule ElvenGard.Playtest.Driver.Node do
       )
 
     case await_ready(port) do
-      :ok -> {:ok, %__MODULE__{owner: owner, port: port}}
-      {:error, reason} -> {:stop, reason}
+      :ok ->
+        {:ok, %__MODULE__{owner: owner, port: port}}
+
+      {:error, reason} ->
+        close_port(port)
+        {:stop, reason}
     end
   end
 
@@ -106,10 +110,7 @@ defmodule ElvenGard.Playtest.Driver.Node do
 
   @impl true
   def terminate(_reason, state) do
-    if state.port && Port.info(state.port) do
-      Port.close(state.port)
-    end
-
+    close_port(state.port)
     :ok
   end
 
@@ -193,6 +194,14 @@ defmodule ElvenGard.Playtest.Driver.Node do
   defp find_node!() do
     System.find_executable("node") ||
       raise "Playtest cannot start its sidecar because the Node.js executable was not found"
+  end
+
+  defp close_port(nil), do: :ok
+
+  defp close_port(port) do
+    if Port.info(port), do: Port.close(port)
+  catch
+    :error, :badarg -> :ok
   end
 
   defp port_env(env) do

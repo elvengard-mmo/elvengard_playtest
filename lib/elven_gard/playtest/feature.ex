@@ -11,6 +11,9 @@ defmodule ElvenGard.Playtest.Feature do
   alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
 
+  @cleanup_timeout 5_000
+  @driver_cleanup_timeout 1_000
+
   defmacro __using__(opts) do
     async = Keyword.get(opts, :async, false)
 
@@ -121,9 +124,12 @@ defmodule ElvenGard.Playtest.Feature do
     :ok
   end
 
-  @spec close(Suite.t()) :: :ok
-  def close(%Suite{} = suite) do
-    close_driver(suite.driver)
+  @spec close(Suite.t(), Keyword.t()) :: :ok
+  def close(%Suite{} = suite, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, @cleanup_timeout)
+    driver_timeout = Keyword.get(opts, :driver_timeout, @driver_cleanup_timeout)
+    close_browser(suite.browser, timeout)
+    close_driver(suite.driver, driver_timeout)
   end
 
   ## Private functions
@@ -176,8 +182,17 @@ defmodule ElvenGard.Playtest.Feature do
     System.get_env("PLAYTEST_BROWSER_PATH")
   end
 
-  defp close_driver(driver) do
-    Playwright.stop(driver)
+  defp close_browser(browser, timeout) do
+    case Browser.close(browser, timeout: timeout, checkin: false) do
+      :ok -> :ok
+      {:error, error} -> log_close_error("browser", browser.name, error)
+    end
+  catch
+    :exit, reason -> log_close_error("browser", browser.name, reason)
+  end
+
+  defp close_driver(driver, timeout) do
+    Playwright.stop(driver, timeout)
   catch
     :exit, {:noproc, _call} -> :ok
     :exit, reason -> log_close_error("driver", driver, reason)
