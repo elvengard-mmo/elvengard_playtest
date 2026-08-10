@@ -141,7 +141,10 @@ defmodule ElvenGard.Playtest.Feature do
           "--no-sandbox",
           "--use-angle=swiftshader",
           "--enable-unsafe-swiftshader",
-          "--ignore-gpu-blocklist"
+          "--ignore-gpu-blocklist",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-renderer-backgrounding"
         ])
     ]
 
