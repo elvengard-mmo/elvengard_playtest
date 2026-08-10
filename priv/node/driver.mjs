@@ -113,6 +113,11 @@ function attachPageEvents(page, pageId) {
 }
 
 const handlers = {
+  async "driver.close"() {
+    await closeAllBrowsers()
+    return true
+  },
+
   async "browser.launch"(params) {
     const browserType = playwright[params.browser || "chromium"]
     if (!browserType) throw new Error(`Unknown browser engine: ${params.browser}`)

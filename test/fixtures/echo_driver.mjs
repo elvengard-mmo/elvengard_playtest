@@ -13,6 +13,10 @@ lines.on("line", line => {
   const request = JSON.parse(line)
 
   switch (request.method) {
+    case "driver.close":
+      write({id: request.id, result: true})
+      break
+
     case "echo":
       write({id: request.id, result: request.params})
       break

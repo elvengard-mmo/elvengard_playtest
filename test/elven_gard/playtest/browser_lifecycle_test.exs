@@ -5,14 +5,7 @@ defmodule ElvenGard.Playtest.BrowserLifecycleTest do
   alias ElvenGard.Playtest.Driver.Playwright
 
   test "a stalled graceful close force-kills the owned browser process" do
-    driver =
-      start_supervised!(
-        {Playwright,
-         driver_path: driver_path(),
-         node_path: System.find_executable("node"),
-         owner: self(),
-         playwright_path: fixture_path("fake_playwright.cjs")}
-      )
+    driver = start_driver!()
 
     assert {:ok, browser} = Browser.launch(driver, browser: :chromium)
     assert :ok = Browser.close(browser, timeout: 500)
@@ -27,7 +20,30 @@ defmodule ElvenGard.Playtest.BrowserLifecycleTest do
     refute os_process_running?(browser_pid)
   end
 
+  test "stopping a driver kills every browser process it still owns" do
+    driver = start_driver!()
+
+    assert {:ok, %{"browser_pid" => browser_pid}} =
+             ElvenGard.Playtest.Driver.Node.command(driver, "browser.launch", %{
+               "browser" => "chromium"
+             })
+
+    assert os_process_running?(browser_pid)
+    assert :ok = Playwright.stop(driver)
+    refute os_process_running?(browser_pid)
+  end
+
   ## Private functions
+
+  defp start_driver!() do
+    start_supervised!(
+      {Playwright,
+       driver_path: driver_path(),
+       node_path: System.find_executable("node"),
+       owner: self(),
+       playwright_path: fixture_path("fake_playwright.cjs")}
+    )
+  end
 
   defp driver_path() do
     Path.expand("../../../priv/node/driver.mjs", __DIR__)
