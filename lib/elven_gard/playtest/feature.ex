@@ -123,8 +123,7 @@ defmodule ElvenGard.Playtest.Feature do
 
   @spec close(Suite.t()) :: :ok
   def close(%Suite{} = suite) do
-    Enum.each(suite.players, fn {name, player} -> close_context(name, player.context) end)
-    close_browser(suite.browser)
+    close_driver(suite.driver)
   end
 
   ## Private functions
@@ -177,22 +176,11 @@ defmodule ElvenGard.Playtest.Feature do
     System.get_env("PLAYTEST_BROWSER_PATH")
   end
 
-  defp close_context(name, context) do
-    case Context.close(context) do
-      :ok -> :ok
-      {:error, error} -> log_close_error("context", name, error)
-    end
+  defp close_driver(driver) do
+    Playwright.stop(driver)
   catch
-    :exit, reason -> log_close_error("context", name, reason)
-  end
-
-  defp close_browser(browser) do
-    case Browser.close(browser) do
-      :ok -> :ok
-      {:error, error} -> log_close_error("browser", browser.name, error)
-    end
-  catch
-    :exit, reason -> log_close_error("browser", browser.name, reason)
+    :exit, {:noproc, _call} -> :ok
+    :exit, reason -> log_close_error("driver", driver, reason)
   end
 
   defp log_close_error(resource, name, reason) do

@@ -91,8 +91,10 @@ the limit tracks active game renderers rather than undercounting a multi-page
 browser as a single unit.
 
 Capacity belongs to the supervised driver rather than the ExUnit process. A
-timed-out test therefore keeps its lease until Chromium has actually closed,
-preventing browser launches from overlapping an unfinished teardown.
+feature cleanup stops that ownership tree as one unit, and the lease is only
+released when the driver terminates. This avoids waiting on an unbounded
+Playwright browser-close handshake or overlapping the next browser launch with
+an unfinished driver teardown.
 
 ## Runtime overrides
 

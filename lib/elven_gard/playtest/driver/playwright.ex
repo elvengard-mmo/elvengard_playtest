@@ -49,6 +49,11 @@ defmodule ElvenGard.Playtest.Driver.Playwright do
     Node.start_link(node_opts)
   end
 
+  @spec stop(pid()) :: :ok
+  def stop(driver) when is_pid(driver) do
+    GenServer.stop(driver)
+  end
+
   ## Private functions
 
   defp maybe_put(opts, _key, nil), do: opts
