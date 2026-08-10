@@ -54,6 +54,28 @@ defmodule ElvenGard.Playtest.ConcurrencyTest do
     Enum.each(remaining, fn {:ok, lease} -> assert :ok = Concurrency.checkin(gate, lease) end)
   end
 
+  test "accounts for every browser context represented by a lease" do
+    gate = start_supervised!({Concurrency, name: nil})
+    assert {:ok, multiplayer_lease} = Concurrency.checkout(gate, self(), 4, 2)
+    assert {:ok, player_lease} = Concurrency.checkout(gate, self(), 4, 1)
+    assert {:ok, second_player_lease} = Concurrency.checkout(gate, self(), 4, 1)
+    parent = self()
+
+    contender =
+      Task.async(fn ->
+        {:ok, contender_lease} = Concurrency.checkout(gate, self(), 4, 1)
+        send(parent, :weighted_contender_acquired)
+        Concurrency.checkin(gate, contender_lease)
+      end)
+
+    refute_receive :weighted_contender_acquired, 50
+    assert :ok = Concurrency.checkin(gate, multiplayer_lease)
+    assert_receive :weighted_contender_acquired
+    assert :ok = Task.await(contender)
+    assert :ok = Concurrency.checkin(gate, player_lease)
+    assert :ok = Concurrency.checkin(gate, second_player_lease)
+  end
+
   test "holds capacity until the resource owner exits instead of the checkout caller" do
     gate = start_supervised!({Concurrency, name: nil})
     parent = self()

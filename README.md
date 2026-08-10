@@ -81,10 +81,14 @@ end
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
 
-Playtest runs up to four browser processes at a time by default while the rest
-wait without disabling ExUnit async execution. Override it per suite with
+Playtest runs up to four browser capacity slots at a time by default while the
+rest wait without disabling ExUnit async execution. Override it per suite with
 `max_concurrency: 8` or globally with
 `config :elvengard_playtest, max_concurrency: 8`.
+
+Multiplayer features consume one capacity slot per isolated player context, so
+the limit tracks active game renderers rather than undercounting a multi-page
+browser as a single unit.
 
 Capacity belongs to the supervised driver rather than the ExUnit process. A
 timed-out test therefore keeps its lease until Chromium has actually closed,

@@ -19,10 +19,11 @@ defmodule ElvenGard.Playtest.Browser do
   @spec launch(pid(), Keyword.t()) :: {:ok, t()} | {:error, Node.error()}
   def launch(driver, opts \\ []) do
     {limit, opts} = Keyword.pop(opts, :max_concurrency, Concurrency.default_limit())
+    {weight, opts} = Keyword.pop(opts, :concurrency_weight, 1)
     browser_name = Keyword.get(opts, :browser, :chromium)
     params = opts |> Keyword.put(:browser, browser_name) |> Options.encode()
     :ok = Concurrency.ensure_started()
-    {:ok, lease} = Concurrency.checkout(Concurrency, driver, limit)
+    {:ok, lease} = Concurrency.checkout(Concurrency, driver, limit, weight)
 
     case Node.command(driver, "browser.launch", params, 30_000) do
       {:ok, %{"browser_id" => id}} ->

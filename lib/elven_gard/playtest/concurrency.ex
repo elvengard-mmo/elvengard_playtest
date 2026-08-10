@@ -20,12 +20,17 @@ defmodule ElvenGard.Playtest.Concurrency do
     end
   end
 
-  @spec checkout(GenServer.server(), pid(), pos_integer()) :: {:ok, lease()}
-  def checkout(server \\ __MODULE__, owner \\ self(), limit \\ default_limit())
+  @spec checkout(GenServer.server(), pid(), pos_integer(), pos_integer()) :: {:ok, lease()}
+  def checkout(
+        server \\ __MODULE__,
+        owner \\ self(),
+        limit \\ default_limit(),
+        weight \\ 1
+      )
 
-  def checkout(server, owner, limit)
-      when is_pid(owner) and is_integer(limit) and limit > 0 do
-    GenServer.call(server, {:checkout, owner, limit}, :infinity)
+  def checkout(server, owner, limit, weight)
+      when is_pid(owner) and is_integer(limit) and limit > 0 and is_integer(weight) and weight > 0 do
+    GenServer.call(server, {:checkout, owner, limit, weight}, :infinity)
   end
 
   @spec ensure_started() :: :ok
@@ -57,12 +62,12 @@ defmodule ElvenGard.Playtest.Concurrency do
   end
 
   @impl true
-  def handle_call({:checkout, owner, limit}, from, state) do
-    if map_size(state.active) < limit do
-      {lease, state} = grant(state, owner)
+  def handle_call({:checkout, owner, limit, weight}, from, state) do
+    if capacity_available?(state, limit, weight) do
+      {lease, state} = grant(state, owner, weight)
       {:reply, {:ok, lease}, state}
     else
-      waiting = :queue.in({from, owner, limit}, state.waiting)
+      waiting = :queue.in({from, owner, limit, weight}, state.waiting)
       {:noreply, %{state | waiting: waiting}}
     end
   end
@@ -85,13 +90,13 @@ defmodule ElvenGard.Playtest.Concurrency do
 
   ## Private functions
 
-  defp grant(state, owner) do
+  defp grant(state, owner, weight) do
     lease = make_ref()
     reference = Process.monitor(owner)
 
     state = %{
       state
-      | active: Map.put(state.active, lease, {owner, reference}),
+      | active: Map.put(state.active, lease, {owner, reference, weight}),
         monitors: Map.put(state.monitors, reference, lease)
     }
 
@@ -103,7 +108,7 @@ defmodule ElvenGard.Playtest.Concurrency do
       {nil, _active} ->
         state
 
-      {{_owner, reference}, active} ->
+      {{_owner, reference, _weight}, active} ->
         Process.demonitor(reference, [:flush])
         %{state | active: active, monitors: Map.delete(state.monitors, reference)}
     end
@@ -114,16 +119,29 @@ defmodule ElvenGard.Playtest.Concurrency do
       {:empty, _waiting} ->
         state
 
-      {{:value, {from, owner, limit}}, waiting} ->
+      {{:value, {from, owner, limit, weight}}, waiting} ->
         state = %{state | waiting: waiting}
 
-        if map_size(state.active) < limit do
-          {lease, state} = grant(state, owner)
+        if capacity_available?(state, limit, weight) do
+          {lease, state} = grant(state, owner, weight)
           GenServer.reply(from, {:ok, lease})
           grant_waiting(state)
         else
-          %{state | waiting: :queue.in_r({from, owner, limit}, waiting)}
+          %{state | waiting: :queue.in_r({from, owner, limit, weight}, waiting)}
         end
     end
+  end
+
+  defp capacity_available?(%{active: active}, limit, weight) when map_size(active) == 0 do
+    weight > 0 and limit > 0
+  end
+
+  defp capacity_available?(state, limit, weight) do
+    used =
+      Enum.reduce(state.active, 0, fn {_lease, {_owner, _reference, active_weight}}, acc ->
+        acc + active_weight
+      end)
+
+    used + weight <= limit
   end
 end
