@@ -49,9 +49,9 @@ defmodule ElvenGard.Playtest.Driver.Playwright do
     Node.start_link(node_opts)
   end
 
-  @spec stop(pid()) :: :ok
-  def stop(driver) when is_pid(driver) do
-    GenServer.stop(driver)
+  @spec stop(pid(), timeout()) :: :ok
+  def stop(driver, timeout \\ 5_000) when is_pid(driver) do
+    GenServer.stop(driver, :normal, timeout)
   end
 
   ## Private functions

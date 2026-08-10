@@ -2,12 +2,23 @@ import readline from "node:readline"
 
 const lines = readline.createInterface({input: process.stdin})
 
+process.stdout.on("error", error => {
+  if (error.code === "EPIPE") process.exit(0)
+  throw error
+})
+
+function write(message) {
+  process.stdout.write(`${JSON.stringify(message)}\n`)
+}
+
 lines.on("line", line => {
   const request = JSON.parse(line)
 
-  if (request.method !== "browser.close") {
-    process.stdout.write(`${JSON.stringify({id: request.id, result: true})}\n`)
+  if (request.method === "browser.close") {
+    write({event: "browser.close_requested", params: {}})
+  } else {
+    write({id: request.id, result: true})
   }
 })
 
-process.stdout.write(`${JSON.stringify({event: "driver.ready", params: {protocol: 1}})}\n`)
+write({event: "driver.ready", params: {protocol: 1, pid: process.pid}})
