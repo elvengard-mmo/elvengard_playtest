@@ -25,7 +25,7 @@ defmodule ElvenGard.Playtest.Browser do
     :ok = Concurrency.ensure_started()
     {:ok, lease} = Concurrency.checkout(Concurrency, driver, limit, weight)
 
-    case Node.command(driver, "browser.launch", params, 30_000) do
+    case Node.command(driver, "browser.launch", params) do
       {:ok, %{"browser_id" => id}} ->
         {:ok, %__MODULE__{driver: driver, id: id, lease: lease, name: browser_name}}
 

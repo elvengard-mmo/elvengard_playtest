@@ -13,7 +13,10 @@ defmodule ElvenGard.Playtest.Driver.Node do
 
   @protocol_version 1
   @ready_timeout 10_000
-  @command_timeout 15_000
+  # Playwright's own action timeout defaults to 30 seconds. The transport must
+  # outlive it so callers receive Playwright's structured error instead of an
+  # unrelated GenServer timeout while a busy CI runner is still working.
+  @command_timeout 60_000
   @max_line_size 4 * 1_024 * 1_024
 
   @type error :: %{required(String.t()) => Jason.Encoder.value()}
