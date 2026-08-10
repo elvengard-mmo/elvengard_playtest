@@ -6,7 +6,9 @@ defmodule ElvenGard.Playtest.Feature do
   the captured browser event stream for every simulated player.
   """
 
-  alias ElvenGard.Playtest.{Browser, Context, EventCollector, Player, Suite}
+  require Logger
+
+  alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
 
   defmacro __using__(opts) do
@@ -51,6 +53,8 @@ defmodule ElvenGard.Playtest.Feature do
             )
 
             :erlang.raise(kind, reason, stacktrace)
+        after
+          ElvenGard.Playtest.Feature.close(playtest_context.playtest)
         end
       end
     end
@@ -117,6 +121,12 @@ defmodule ElvenGard.Playtest.Feature do
     :ok
   end
 
+  @spec close(Suite.t()) :: :ok
+  def close(%Suite{} = suite) do
+    Enum.each(suite.players, fn {name, player} -> close_context(name, player.context) end)
+    close_browser(suite.browser)
+  end
+
   ## Private functions
 
   defp launch_browser!(driver, opts) do
@@ -124,7 +134,7 @@ defmodule ElvenGard.Playtest.Feature do
       browser: Keyword.get(opts, :browser, :chromium),
       executable_path: Keyword.get(opts, :executable_path) || default_browser_path(),
       headless: Keyword.get(opts, :headless, true),
-      max_concurrency: Keyword.get(opts, :max_concurrency, 1),
+      max_concurrency: Keyword.get(opts, :max_concurrency, Concurrency.default_limit()),
       args:
         Keyword.get(opts, :browser_args, [
           "--no-sandbox",
@@ -161,6 +171,31 @@ defmodule ElvenGard.Playtest.Feature do
 
   defp default_browser_path() do
     System.get_env("PLAYTEST_BROWSER_PATH")
+  end
+
+  defp close_context(name, context) do
+    case Context.close(context) do
+      :ok -> :ok
+      {:error, error} -> log_close_error("context", name, error)
+    end
+  catch
+    :exit, reason -> log_close_error("context", name, reason)
+  end
+
+  defp close_browser(browser) do
+    case Browser.close(browser) do
+      :ok -> :ok
+      {:error, error} -> log_close_error("browser", browser.name, error)
+    end
+  catch
+    :exit, reason -> log_close_error("browser", browser.name, reason)
+  end
+
+  defp log_close_error(resource, name, reason) do
+    Logger.error(
+      "Playtest failed to close #{resource} during feature cleanup: " <>
+        "error_code=feature_cleanup_failed resource_name=#{inspect(name)} cause=#{inspect(reason)}"
+    )
   end
 
   defp failure_event?(%{name: "page.error"}), do: true

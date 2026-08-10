@@ -6,26 +6,30 @@ defmodule ElvenGard.Playtest.Browser do
   alias ElvenGard.Playtest.{Concurrency, Context, Options}
   alias ElvenGard.Playtest.Driver.Node
 
-  @type t :: %__MODULE__{driver: pid(), id: String.t(), name: atom(), owner: pid()}
-  defstruct [:driver, :id, :name, :owner]
+  @type t :: %__MODULE__{
+          driver: pid(),
+          id: String.t(),
+          lease: Concurrency.lease(),
+          name: atom()
+        }
+  defstruct [:driver, :id, :lease, :name]
 
   ## Public API
 
   @spec launch(pid(), Keyword.t()) :: {:ok, t()} | {:error, Node.error()}
   def launch(driver, opts \\ []) do
-    owner = self()
     {limit, opts} = Keyword.pop(opts, :max_concurrency, Concurrency.default_limit())
     browser_name = Keyword.get(opts, :browser, :chromium)
     params = opts |> Keyword.put(:browser, browser_name) |> Options.encode()
     :ok = Concurrency.ensure_started()
-    :ok = Concurrency.checkout(Concurrency, limit)
+    {:ok, lease} = Concurrency.checkout(Concurrency, driver, limit)
 
     case Node.command(driver, "browser.launch", params, 30_000) do
       {:ok, %{"browser_id" => id}} ->
-        {:ok, %__MODULE__{driver: driver, id: id, name: browser_name, owner: owner}}
+        {:ok, %__MODULE__{driver: driver, id: id, lease: lease, name: browser_name}}
 
       {:error, error} ->
-        :ok = Concurrency.checkin(Concurrency, owner)
+        :ok = Concurrency.checkin(Concurrency, lease)
         {:error, error}
     end
   end
@@ -37,13 +41,13 @@ defmodule ElvenGard.Playtest.Browser do
 
   @spec close(t()) :: :ok | {:error, Node.error()}
   def close(%__MODULE__{} = browser) do
-    result =
+    try do
       case Node.command(browser.driver, "browser.close", %{"browser_id" => browser.id}) do
         {:ok, true} -> :ok
         {:error, error} -> {:error, error}
       end
-
-    :ok = Concurrency.checkin(Concurrency, browser.owner)
-    result
+    after
+      :ok = Concurrency.checkin(Concurrency, browser.lease)
+    end
   end
 end

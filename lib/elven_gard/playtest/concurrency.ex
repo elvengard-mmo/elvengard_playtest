@@ -6,7 +6,9 @@ defmodule ElvenGard.Playtest.Concurrency do
 
   use GenServer
 
-  @default_limit 1
+  @default_limit 4
+
+  @type lease :: reference()
 
   ## Public API
 
@@ -18,11 +20,12 @@ defmodule ElvenGard.Playtest.Concurrency do
     end
   end
 
-  @spec checkout(GenServer.server(), pos_integer()) :: :ok
-  def checkout(server \\ __MODULE__, limit \\ default_limit())
+  @spec checkout(GenServer.server(), pid(), pos_integer()) :: {:ok, lease()}
+  def checkout(server \\ __MODULE__, owner \\ self(), limit \\ default_limit())
 
-  def checkout(server, limit) when is_integer(limit) and limit > 0 do
-    GenServer.call(server, {:checkout, limit}, :infinity)
+  def checkout(server, owner, limit)
+      when is_pid(owner) and is_integer(limit) and limit > 0 do
+    GenServer.call(server, {:checkout, owner, limit}, :infinity)
   end
 
   @spec ensure_started() :: :ok
@@ -33,9 +36,12 @@ defmodule ElvenGard.Playtest.Concurrency do
     end
   end
 
-  @spec checkin(GenServer.server(), pid()) :: :ok
-  def checkin(server \\ __MODULE__, owner \\ self()) when is_pid(owner) do
-    GenServer.call(server, {:checkin, owner})
+  @spec checkin(lease()) :: :ok
+  def checkin(lease) when is_reference(lease), do: checkin(__MODULE__, lease)
+
+  @spec checkin(GenServer.server(), lease()) :: :ok
+  def checkin(server, lease) when is_reference(lease) do
+    GenServer.call(server, {:checkin, lease})
   end
 
   @spec default_limit() :: pos_integer()
@@ -47,47 +53,59 @@ defmodule ElvenGard.Playtest.Concurrency do
 
   @impl true
   def init(:ok) do
-    {:ok, %{active: %{}, waiting: :queue.new()}}
+    {:ok, %{active: %{}, monitors: %{}, waiting: :queue.new()}}
   end
 
   @impl true
-  def handle_call({:checkout, limit}, from, state) do
+  def handle_call({:checkout, owner, limit}, from, state) do
     if map_size(state.active) < limit do
-      {:reply, :ok, grant(state, from)}
+      {lease, state} = grant(state, owner)
+      {:reply, {:ok, lease}, state}
     else
-      waiting = :queue.in({from, limit}, state.waiting)
+      waiting = :queue.in({from, owner, limit}, state.waiting)
       {:noreply, %{state | waiting: waiting}}
     end
   end
 
-  def handle_call({:checkin, owner}, _from, state) do
-    state = release(state, owner)
+  def handle_call({:checkin, lease}, _from, state) do
+    state = release(state, lease)
     {:reply, :ok, grant_waiting(state)}
   end
 
   @impl true
-  def handle_info({:DOWN, reference, :process, owner, _reason}, state) do
-    case state.active do
-      %{^owner => ^reference} -> {:noreply, state |> release(owner) |> grant_waiting()}
-      _active -> {:noreply, state}
+  def handle_info({:DOWN, reference, :process, _owner, _reason}, state) do
+    case Map.fetch(state.monitors, reference) do
+      {:ok, lease} ->
+        {:noreply, state |> release(lease) |> grant_waiting()}
+
+      :error ->
+        {:noreply, state}
     end
   end
 
   ## Private functions
 
-  defp grant(state, {owner, _tag}) do
+  defp grant(state, owner) do
+    lease = make_ref()
     reference = Process.monitor(owner)
-    put_in(state.active[owner], reference)
+
+    state = %{
+      state
+      | active: Map.put(state.active, lease, {owner, reference}),
+        monitors: Map.put(state.monitors, reference, lease)
+    }
+
+    {lease, state}
   end
 
-  defp release(state, owner) do
-    case Map.pop(state.active, owner) do
+  defp release(state, lease) do
+    case Map.pop(state.active, lease) do
       {nil, _active} ->
         state
 
-      {reference, active} ->
+      {{_owner, reference}, active} ->
         Process.demonitor(reference, [:flush])
-        %{state | active: active}
+        %{state | active: active, monitors: Map.delete(state.monitors, reference)}
     end
   end
 
@@ -96,14 +114,15 @@ defmodule ElvenGard.Playtest.Concurrency do
       {:empty, _waiting} ->
         state
 
-      {{:value, {from, limit}}, waiting} ->
+      {{:value, {from, owner, limit}}, waiting} ->
         state = %{state | waiting: waiting}
 
         if map_size(state.active) < limit do
-          GenServer.reply(from, :ok)
-          state |> grant(from) |> grant_waiting()
+          {lease, state} = grant(state, owner)
+          GenServer.reply(from, {:ok, lease})
+          grant_waiting(state)
         else
-          %{state | waiting: :queue.in_r({from, limit}, waiting)}
+          %{state | waiting: :queue.in_r({from, owner, limit}, waiting)}
         end
     end
   end
