@@ -7,7 +7,7 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 ## Capabilities
 
 - real Chromium, Firefox and WebKit browsers;
-- independent `key_down` / `key_up`, condition-synchronized key presses and bounded pointer holds;
+- independent `key_down` / `key_up`, condition-bounded key holds, synchronized key presses and timed or condition-bounded pointer holds;
 - isolated multi-player sessions in one feature;
 - bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
@@ -69,9 +69,13 @@ defmodule MyGame.MovementFeature do
     assert :ok = Probe.wait_until_ready(players.alice.page)
     assert {:ok, before} = Probe.call(players.alice.page, "state")
 
-    assert {:ok, true} = Page.key_down(players.alice.page, "KeyD")
-    assert {:ok, _frame} = Probe.wait_for_frames(players.alice.page, 10)
-    assert {:ok, true} = Page.key_up(players.alice.page, "KeyD")
+    assert {:ok, true} =
+             Page.key_hold_until(
+               players.alice.page,
+               "KeyD",
+               "window.__gameTest.call('rendered').player.x > #{before["player"]["x"] + 20}",
+               timeout: 5_000
+             )
 
     assert {:ok, after_move} = Probe.call(players.alice.page, "rendered")
     assert after_move["player"]["x"] > before["player"]["x"]

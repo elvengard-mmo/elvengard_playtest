@@ -300,6 +300,22 @@ const handlers = {
     return true
   },
 
+  async "keyboard.hold_until"(params) {
+    const page = pageFor(params)
+    await page.keyboard.down(params.key)
+
+    try {
+      await page.waitForFunction(params.expression, params.argument, {
+        timeout: params.timeout,
+        polling: params.polling,
+      })
+    } finally {
+      await page.keyboard.up(params.key)
+    }
+
+    return true
+  },
+
   async "mouse.move"(params) {
     await pageFor(params).mouse.move(params.x, params.y, {steps: params.steps})
     return true
@@ -320,6 +336,20 @@ const handlers = {
         timeout: params.timeout,
         polling: params.polling,
       })
+    } finally {
+      await page.mouse.up(input)
+    }
+
+    return true
+  },
+
+  async "mouse.hold_for"(params) {
+    const page = pageFor(params)
+    const input = {button: params.button, clickCount: params.click_count}
+    await page.mouse.down(input)
+
+    try {
+      await page.waitForTimeout(params.duration_ms)
     } finally {
       await page.mouse.up(input)
     }

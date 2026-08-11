@@ -12,7 +12,9 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
       <button id="join">Join</button>
       <script>
         window.events = []
+        window.pointerEvents = []
         window.readyForSpecial = false
+        window.releaseMovement = false
         window.addEventListener("keydown", event => window.events.push(["keydown", event.code]))
         window.addEventListener("keyup", event => window.events.push(["keyup", event.code]))
         document.querySelector("#game").addEventListener("pointermove", event => {
@@ -20,8 +22,12 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
         })
         document.querySelector("#game").addEventListener("pointerdown", () => {
           window.events.push(["pointerdown"])
+          window.pointerEvents.push(["pointerdown", performance.now()])
         })
-        window.addEventListener("pointerup", () => window.events.push(["pointerup"]))
+        window.addEventListener("pointerup", () => {
+          window.events.push(["pointerup"])
+          window.pointerEvents.push(["pointerup", performance.now()])
+        })
         document.querySelector("#join").addEventListener("click", () => window.events.push(["click"]))
       </script>
     </body>
@@ -81,6 +87,21 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, true} = Page.evaluate(page, "window.readyForSpecial = true")
     assert {:ok, true} = Task.await(pending_press)
 
+    pending_hold =
+      Task.async(fn ->
+        Page.key_hold_until(page, "KeyA", "window.releaseMovement === true",
+          timeout: 1_000,
+          polling: 10
+        )
+      end)
+
+    _state = :sys.get_state(driver)
+    assert {:ok, true} = Page.evaluate(page, "window.releaseMovement = true")
+    assert {:ok, true} = Task.await(pending_hold)
+
+    assert {:error, %{"code" => "TimeoutError"}} =
+             Page.key_hold_until(page, "KeyS", "false", timeout: 20, polling: 10)
+
     assert {:ok, true} =
              Page.mouse_hold_until(
                page,
@@ -92,14 +113,24 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:error, %{"code" => "TimeoutError"}} =
              Page.mouse_hold_until(page, "false", timeout: 20, polling: 10)
 
+    assert {:ok, true} = Page.mouse_hold_for(page, 40)
+
     assert {:ok, events} = Page.evaluate(page, "window.events")
+    assert {:ok, pointer_events} = Page.evaluate(page, "window.pointerEvents")
     assert ["keyup", "KeyD"] in events
     assert ["keydown", "KeyR"] in events
     assert ["keyup", "KeyR"] in events
+    assert ["keydown", "KeyA"] in events
+    assert ["keyup", "KeyA"] in events
+    assert ["keydown", "KeyS"] in events
+    assert ["keyup", "KeyS"] in events
     assert ["pointerdown"] in events
     assert ["pointerup"] in events
     assert List.last(events) == ["pointerup"]
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
+
+    [["pointerdown", held_at], ["pointerup", released_at]] = Enum.take(pointer_events, -2)
+    assert released_at - held_at >= 35
 
     screenshot = Path.join(tmp_dir, "game.png")
     assert {:ok, ^screenshot} = Page.screenshot(page, path: screenshot)

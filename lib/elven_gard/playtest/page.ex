@@ -110,6 +110,13 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "keyboard.press_when", opts, %{"key" => key, "expression" => expression})
   end
 
+  @spec key_hold_until(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def key_hold_until(%__MODULE__{} = page, key, expression, opts \\ [])
+      when is_binary(key) and is_binary(expression) do
+    command(page, "keyboard.hold_until", opts, %{"key" => key, "expression" => expression})
+  end
+
   @spec mouse_move(t(), number(), number(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_move(%__MODULE__{} = page, x, y, opts \\ []) when is_number(x) and is_number(y) do
     command(page, "mouse.move", opts, %{"x" => x, "y" => y})
@@ -122,6 +129,12 @@ defmodule ElvenGard.Playtest.Page do
   def mouse_hold_until(%__MODULE__{} = page, expression, opts \\ [])
       when is_binary(expression) do
     command(page, "mouse.hold_until", opts, %{"expression" => expression})
+  end
+
+  @spec mouse_hold_for(t(), pos_integer(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def mouse_hold_for(%__MODULE__{} = page, duration_ms, opts \\ [])
+      when is_integer(duration_ms) and duration_ms > 0 do
+    command(page, "mouse.hold_for", opts, %{"duration_ms" => duration_ms})
   end
 
   @spec mouse_up(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
