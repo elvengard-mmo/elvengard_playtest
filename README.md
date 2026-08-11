@@ -11,6 +11,7 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 - isolated multi-player sessions in one feature;
 - bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
+- exact canvas-only video intervals independent from page setup and teardown;
 - console errors, page crashes and WebSocket frame events;
 - screenshots, Playwright traces and event logs on failure;
 - pinned runtime installation outside the consuming project.
@@ -84,6 +85,31 @@ end
 ```
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
+
+## Exact canvas video
+
+Use a canvas recording when a gameplay artifact must exclude menus, camera setup
+and browser UI. The interval starts and stops explicitly, independently from the
+page lifecycle:
+
+```elixir
+alias ElvenGard.Playtest.{CanvasVideo, Page, Video}
+
+{:ok, recording} =
+  Page.start_canvas_video(page, "#game-canvas-host canvas",
+    fps: 60,
+    video_bits_per_second: 8_000_000
+  )
+
+# Drive the real game through Page while the canvas is recorded.
+
+{:ok, video} = CanvasVideo.stop(recording)
+{:ok, "tmp/firebomb.webm"} = Video.save_as(video, "tmp/firebomb.webm")
+:ok = Video.delete(video)
+```
+
+`CanvasVideo.cancel/1` stops and discards an interval when its surrounding
+scenario fails.
 
 Playwright trace screenshots are enabled by default. For multi-player canvas
 games, continuous screenshots can be disabled while preserving DOM snapshots,

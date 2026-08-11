@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Page do
   Drives one page with precise browser-level inputs suitable for real-time games.
   """
 
-  alias ElvenGard.Playtest.{Context, Options, Video}
+  alias ElvenGard.Playtest.{CanvasVideo, Context, Options, Video}
   alias ElvenGard.Playtest.Driver.Node
 
   @type t :: %__MODULE__{context: Context.t(), driver: pid(), id: String.t()}
@@ -157,6 +157,39 @@ defmodule ElvenGard.Playtest.Page do
       {:ok, %{"video_id" => id}} -> {:ok, %Video{driver: page.driver, id: id}}
       {:ok, nil} -> {:ok, nil}
       {:error, error} -> {:error, error}
+    end
+  end
+
+  @spec start_canvas_video(t(), String.t(), Keyword.t()) ::
+          {:ok, CanvasVideo.t()} | {:error, Node.error()}
+  def start_canvas_video(%__MODULE__{} = page, selector, opts \\ [])
+      when is_binary(selector) do
+    params =
+      opts
+      |> Options.encode()
+      |> Map.merge(%{"page_id" => page.id, "selector" => selector})
+
+    case Node.command(page.driver, "canvas_video.start", params) do
+      {:ok,
+       %{
+         "recording_id" => id,
+         "mime_type" => mime_type,
+         "width" => width,
+         "height" => height,
+         "fps" => fps
+       }} ->
+        {:ok,
+         %CanvasVideo{
+           driver: page.driver,
+           id: id,
+           mime_type: mime_type,
+           width: width,
+           height: height,
+           fps: fps
+         }}
+
+      {:error, error} ->
+        {:error, error}
     end
   end
 

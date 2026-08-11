@@ -1,4 +1,5 @@
 import {createRequire} from "node:module"
+import {writeFile} from "node:fs/promises"
 import readline from "node:readline"
 
 const protocolVersion = 1
@@ -46,6 +47,7 @@ const browsers = new Map()
 const contexts = new Map()
 const pages = new Map()
 const videos = new Map()
+const canvasRecordings = new Map()
 let sequence = 0
 
 function nextId(prefix) {
@@ -290,8 +292,122 @@ const handlers = {
     if (!video) return null
 
     const videoId = nextId("video")
-    videos.set(videoId, video)
+    videos.set(videoId, {type: "playwright", video})
     return {video_id: videoId}
+  },
+
+  async "canvas_video.start"(params) {
+    const page = pageFor(params)
+    const recordingId = nextId("canvas-recording")
+    const metadata = await page.evaluate(
+      ({recordingId, selector, fps, mimeType, videoBitsPerSecond}) => {
+        const canvas = document.querySelector(selector)
+        if (!(canvas instanceof HTMLCanvasElement)) {
+          throw new Error(`Canvas video selector did not match a canvas: ${selector}`)
+        }
+        if (typeof canvas.captureStream !== "function" || typeof MediaRecorder === "undefined") {
+          throw new Error("Canvas video recording is not supported by this browser")
+        }
+
+        const candidates = mimeType
+          ? [mimeType]
+          : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+        const selectedMimeType = candidates.find(candidate => MediaRecorder.isTypeSupported(candidate))
+        if (!selectedMimeType) {
+          throw new Error(`Canvas video MIME type is not supported: ${mimeType || "video/webm"}`)
+        }
+
+        const stream = canvas.captureStream(fps)
+        const recorder = new MediaRecorder(stream, {
+          mimeType: selectedMimeType,
+          videoBitsPerSecond,
+        })
+        const chunks = []
+        let resolveStopped
+        let rejectStopped
+        const stopped = new Promise((resolve, reject) => {
+          resolveStopped = resolve
+          rejectStopped = reject
+        })
+
+        recorder.addEventListener("dataavailable", event => {
+          if (event.data.size > 0) chunks.push(event.data)
+        })
+        recorder.addEventListener("error", event => rejectStopped(event.error))
+        recorder.addEventListener("stop", () => {
+          const blob = new Blob(chunks, {type: recorder.mimeType || selectedMimeType})
+          const reader = new FileReader()
+          reader.addEventListener("error", () => rejectStopped(reader.error))
+          reader.addEventListener("loadend", () => {
+            const [, base64] = String(reader.result).split(",", 2)
+            resolveStopped({base64, mime_type: blob.type, size: blob.size})
+          })
+          reader.readAsDataURL(blob)
+        })
+
+        globalThis.__elvengardCanvasVideos ||= new Map()
+        globalThis.__elvengardCanvasVideos.set(recordingId, {recorder, stopped, stream})
+        recorder.start(100)
+
+        return {
+          mime_type: recorder.mimeType || selectedMimeType,
+          width: canvas.width,
+          height: canvas.height,
+          fps,
+        }
+      },
+      {
+        recordingId,
+        selector: params.selector,
+        fps: params.fps || 30,
+        mimeType: params.mime_type,
+        videoBitsPerSecond: params.video_bits_per_second,
+      },
+    )
+
+    canvasRecordings.set(recordingId, {pageId: params.page_id})
+    return {recording_id: recordingId, ...metadata}
+  },
+
+  async "canvas_video.stop"(params) {
+    const recording = fetchObject(canvasRecordings, params.recording_id, "canvas recording")
+    const page = fetchObject(pages, recording.pageId, "page")
+    const artifact = await page.evaluate(async recordingId => {
+      const recordings = globalThis.__elvengardCanvasVideos
+      const active = recordings?.get(recordingId)
+      if (!active) throw new Error(`Unknown canvas recording: ${recordingId}`)
+
+      if (active.recorder.state !== "inactive") active.recorder.stop()
+      const result = await active.stopped
+      active.stream.getTracks().forEach(track => track.stop())
+      recordings.delete(recordingId)
+      return result
+    }, params.recording_id)
+
+    canvasRecordings.delete(params.recording_id)
+    const videoId = nextId("video")
+    videos.set(videoId, {
+      type: "buffer",
+      buffer: Buffer.from(artifact.base64, "base64"),
+    })
+    return {video_id: videoId, mime_type: artifact.mime_type, size: artifact.size}
+  },
+
+  async "canvas_video.cancel"(params) {
+    const recording = fetchObject(canvasRecordings, params.recording_id, "canvas recording")
+    const page = fetchObject(pages, recording.pageId, "page")
+    await page.evaluate(async recordingId => {
+      const recordings = globalThis.__elvengardCanvasVideos
+      const active = recordings?.get(recordingId)
+      if (!active) return
+
+      if (active.recorder.state !== "inactive") active.recorder.stop()
+      await active.stopped
+      active.stream.getTracks().forEach(track => track.stop())
+      recordings.delete(recordingId)
+    }, params.recording_id)
+    canvasRecordings.delete(params.recording_id)
+    return true
   },
 
   async "page.close"(params) {
@@ -302,14 +418,18 @@ const handlers = {
   },
 
   async "video.save_as"(params) {
-    const video = fetchObject(videos, params.video_id, "video")
-    await video.saveAs(params.path)
+    const artifact = fetchObject(videos, params.video_id, "video")
+    if (artifact.type === "playwright") {
+      await artifact.video.saveAs(params.path)
+    } else {
+      await writeFile(params.path, artifact.buffer)
+    }
     return params.path
   },
 
   async "video.delete"(params) {
-    const video = fetchObject(videos, params.video_id, "video")
-    await video.delete()
+    const artifact = fetchObject(videos, params.video_id, "video")
+    if (artifact.type === "playwright") await artifact.video.delete()
     videos.delete(params.video_id)
     return true
   },
@@ -435,6 +555,7 @@ async function closeAllBrowsers() {
   contexts.clear()
   pages.clear()
   videos.clear()
+  canvasRecordings.clear()
 }
 
 const lines = readline.createInterface({input: process.stdin})
