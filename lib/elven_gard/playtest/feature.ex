@@ -10,6 +10,7 @@ defmodule ElvenGard.Playtest.Feature do
 
   alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
+  alias ElvenGard.Playtest.Feature.Timeout
 
   defmacro __using__(opts) do
     async = Keyword.get(opts, :async, false)
@@ -163,18 +164,11 @@ defmodule ElvenGard.Playtest.Feature do
   ## Private functions
 
   defp feature_timeout(caller) do
-    timeout_from_attribute(Module.get_attribute(caller.module, :tag)) ||
-      timeout_from_attribute(Module.get_attribute(caller.module, :moduletag)) ||
+    Timeout.resolve(
+      Module.get_attribute(caller.module, :tag),
+      Module.get_attribute(caller.module, :moduletag),
       60_000
-  end
-
-  defp timeout_from_attribute(values) do
-    values
-    |> List.wrap()
-    |> Enum.find_value(fn
-      tags when is_list(tags) -> Keyword.get(tags, :timeout)
-      _other -> nil
-    end)
+    )
   end
 
   defp launch_browser!(driver, opts) do
