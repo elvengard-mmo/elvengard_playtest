@@ -218,11 +218,12 @@ defmodule ElvenGard.Playtest.Feature do
     names = Keyword.get(opts, :players, [:player])
     base_url = Keyword.get(opts, :base_url)
     context_opts = Keyword.get(opts, :context, viewport: %{width: 1_280, height: 800})
+    tracing_opts = Keyword.get(opts, :tracing, [])
 
     Map.new(names, fn name ->
       {:ok, context} = Context.new(browser, context_opts)
       :ok = Context.install_probe(context)
-      :ok = Context.start_tracing(context)
+      :ok = Context.start_tracing(context, tracing_opts)
       {:ok, page} = Context.new_page(context)
 
       if base_url do

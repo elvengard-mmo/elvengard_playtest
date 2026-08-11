@@ -85,6 +85,16 @@ end
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
 
+Playwright trace screenshots are enabled by default. For multi-player canvas
+games, continuous screenshots can be disabled while preserving DOM snapshots,
+sources, network events and Playtest's final failure screenshot:
+
+```elixir
+use ElvenGard.Playtest.Feature,
+  players: [:alice, :bob],
+  tracing: [screenshots: false]
+```
+
 Playtest runs up to four browser capacity slots at a time by default while the
 rest wait without disabling ExUnit async execution. Override it per suite with
 `max_concurrency: 8` or globally with
