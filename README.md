@@ -98,7 +98,9 @@ Capacity belongs to the supervised driver rather than the ExUnit process. A
 feature cleanup stops that ownership tree as one unit, and the lease is only
 released when the driver terminates. This avoids waiting on an unbounded
 Playwright browser-close handshake or overlapping the next browser launch with
-an unfinished driver teardown.
+an unfinished driver teardown. Cleanup first closes the browser gracefully
+within a fixed deadline, then force-kills the owned browser process through
+Playwright before stopping the sidecar if that deadline is exceeded.
 
 Feature execution has its own timeout that starts after browser and player
 setup. Configure it on the feature case when a real-time scenario needs a

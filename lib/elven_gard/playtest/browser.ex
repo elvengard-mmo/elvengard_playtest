@@ -6,6 +6,8 @@ defmodule ElvenGard.Playtest.Browser do
   alias ElvenGard.Playtest.{Concurrency, Context, Options}
   alias ElvenGard.Playtest.Driver.Node
 
+  @close_timeout 5_000
+
   @type t :: %__MODULE__{
           driver: pid(),
           id: String.t(),
@@ -40,15 +42,24 @@ defmodule ElvenGard.Playtest.Browser do
     Context.new(browser, opts)
   end
 
-  @spec close(t()) :: :ok | {:error, Node.error()}
-  def close(%__MODULE__{} = browser) do
+  @spec close(t(), Keyword.t()) :: :ok | {:error, Node.error()}
+  def close(%__MODULE__{} = browser, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, @close_timeout)
+    checkin? = Keyword.get(opts, :checkin, true)
+    close_timeout = max(timeout - 250, 1)
+
     try do
-      case Node.command(browser.driver, "browser.close", %{"browser_id" => browser.id}) do
+      case Node.command(
+             browser.driver,
+             "browser.close",
+             %{"browser_id" => browser.id, "timeout" => close_timeout},
+             timeout
+           ) do
         {:ok, true} -> :ok
         {:error, error} -> {:error, error}
       end
     after
-      :ok = Concurrency.checkin(Concurrency, browser.lease)
+      if checkin?, do: :ok = Concurrency.checkin(Concurrency, browser.lease)
     end
   end
 end

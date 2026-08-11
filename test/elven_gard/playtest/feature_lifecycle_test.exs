@@ -1,11 +1,11 @@
 defmodule ElvenGard.Playtest.FeatureLifecycleTest do
   use ExUnit.Case, async: true
 
-  alias ElvenGard.Playtest.{Browser, Feature, Suite}
+  alias ElvenGard.Playtest.{Browser, Concurrency, Feature, Suite}
   alias ElvenGard.Playtest.Driver.Node
 
-  @tag timeout: 2_000
-  test "feature cleanup stops its driver without awaiting a stalled browser close" do
+  @tag timeout: 3_000
+  test "feature cleanup keeps browser capacity until a stalled driver is stopped" do
     driver =
       start_supervised!(
         {Node,
@@ -16,19 +16,29 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
 
     reference = Process.monitor(driver)
 
+    :ok = Concurrency.ensure_started()
+    {:ok, lease} = Concurrency.checkout(Concurrency, driver, 4)
+
     suite = %Suite{
       browser: %Browser{
         driver: driver,
         id: "browser-1",
-        lease: make_ref(),
+        lease: lease,
         name: :chromium
       },
       driver: driver,
       players: %{}
     }
 
-    assert :ok = Feature.close(suite)
+    contender = Task.async(fn -> Concurrency.checkout(Concurrency, self(), 1) end)
+    close_task = Task.async(fn -> Feature.close(suite, timeout: 100) end)
+
+    assert_receive {:playtest_event, ^driver, "browser.close_requested", _params}
+    assert Task.yield(contender, 0) == nil
+
+    assert :ok = Task.await(close_task)
     assert_receive {:DOWN, ^reference, :process, ^driver, :normal}
+    assert {:ok, _lease} = Task.await(contender)
   end
 
   test "feature execution owns a timeout that starts after setup" do

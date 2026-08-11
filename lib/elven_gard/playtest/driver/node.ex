@@ -13,6 +13,8 @@ defmodule ElvenGard.Playtest.Driver.Node do
 
   @protocol_version 1
   @ready_timeout 10_000
+  @shutdown_timeout 5_000
+  @shutdown_id -1
   # Playwright's own action timeout defaults to 30 seconds. The transport must
   # outlive it so callers receive Playwright's structured error instead of an
   # unrelated GenServer timeout while a busy CI runner is still working.
@@ -64,8 +66,12 @@ defmodule ElvenGard.Playtest.Driver.Node do
       )
 
     case await_ready(port) do
-      :ok -> {:ok, %__MODULE__{owner: owner, port: port}}
-      {:error, reason} -> {:stop, reason}
+      :ok ->
+        {:ok, %__MODULE__{owner: owner, port: port}}
+
+      {:error, reason} ->
+        close_port(port)
+        {:stop, reason}
     end
   end
 
@@ -106,10 +112,8 @@ defmodule ElvenGard.Playtest.Driver.Node do
 
   @impl true
   def terminate(_reason, state) do
-    if state.port && Port.info(state.port) do
-      Port.close(state.port)
-    end
-
+    shutdown_driver(state.port, state.buffer)
+    close_port(state.port)
     :ok
   end
 
@@ -193,6 +197,58 @@ defmodule ElvenGard.Playtest.Driver.Node do
   defp find_node!() do
     System.find_executable("node") ||
       raise "Playtest cannot start its sidecar because the Node.js executable was not found"
+  end
+
+  defp shutdown_driver(port, buffer) do
+    if Port.info(port) do
+      payload = Jason.encode_to_iodata!(%{id: @shutdown_id, method: "driver.close", params: %{}})
+      true = Port.command(port, [payload, ?\n])
+      deadline = System.monotonic_time(:millisecond) + @shutdown_timeout
+      await_shutdown(port, buffer, deadline)
+    end
+  catch
+    :error, :badarg -> :ok
+  end
+
+  defp await_shutdown(port, buffer, deadline) do
+    timeout = max(deadline - System.monotonic_time(:millisecond), 0)
+
+    receive do
+      {^port, {:data, {:noeol, chunk}}} ->
+        await_shutdown(port, buffer <> chunk, deadline)
+
+      {^port, {:data, {:eol, line}}} ->
+        case Jason.decode(buffer <> line) do
+          {:ok, %{"id" => @shutdown_id, "result" => true}} ->
+            :ok
+
+          {:ok, %{"id" => @shutdown_id, "error" => error}} ->
+            Logger.error(
+              "Playtest driver rejected browser cleanup during sidecar shutdown: " <>
+                "error_code=driver_shutdown_failed cause=#{inspect(error)}"
+            )
+
+          _message ->
+            await_shutdown(port, "", deadline)
+        end
+
+      {^port, {:exit_status, _status}} ->
+        :ok
+    after
+      timeout ->
+        Logger.error(
+          "Playtest driver did not acknowledge browser cleanup before sidecar shutdown: " <>
+            "error_code=driver_shutdown_timeout timeout_ms=#{@shutdown_timeout}"
+        )
+    end
+  end
+
+  defp close_port(nil), do: :ok
+
+  defp close_port(port) do
+    if Port.info(port), do: Port.close(port)
+  catch
+    :error, :badarg -> :ok
   end
 
   defp port_env(env) do

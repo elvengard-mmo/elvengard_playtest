@@ -113,29 +113,43 @@ function attachPageEvents(page, pageId) {
 }
 
 const handlers = {
+  async "driver.close"() {
+    await closeAllBrowsers()
+    return true
+  },
+
   async "browser.launch"(params) {
     const browserType = playwright[params.browser || "chromium"]
     if (!browserType) throw new Error(`Unknown browser engine: ${params.browser}`)
 
-    const browser = await browserType.launch({
+    const server = await browserType.launchServer({
       headless: params.headless ?? true,
       executablePath: params.executable_path,
       args: params.args || [],
     })
+    let browser
+
+    try {
+      browser = await browserType.connect(server.wsEndpoint())
+    } catch (error) {
+      await server.kill()
+      throw error
+    }
+
     const browserId = nextId("browser")
-    browsers.set(browserId, browser)
-    return {browser_id: browserId}
+    browsers.set(browserId, {browser, server})
+    return {browser_id: browserId, browser_pid: server.process().pid}
   },
 
   async "browser.close"(params) {
-    const browser = fetchObject(browsers, params.browser_id, "browser")
-    await browser.close()
+    const session = fetchObject(browsers, params.browser_id, "browser")
+    await closeBrowserSession(session, params.timeout)
     browsers.delete(params.browser_id)
     return true
   },
 
   async "context.new"(params) {
-    const browser = fetchObject(browsers, params.browser_id, "browser")
+    const {browser} = fetchObject(browsers, params.browser_id, "browser")
     const context = await browser.newContext({
       viewport: params.viewport,
       userAgent: params.user_agent,
@@ -363,8 +377,36 @@ const handlers = {
   },
 }
 
+async function closeBrowserSession({server}, timeout = 4_000) {
+  let timer
+
+  try {
+    await Promise.race([
+      server.close(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          reject(Object.assign(new Error(`Browser close exceeded ${timeout}ms`), {name: "timeout"}))
+        }, timeout)
+      }),
+    ])
+  } catch (error) {
+    write({
+      event: "browser.close_forced",
+      params: {browser_pid: server.process().pid, cause: serializeError(error)},
+    })
+
+    const browserProcess = server.process()
+    if (browserProcess.exitCode === null && browserProcess.signalCode === null) {
+      await server.kill()
+    }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function closeAllBrowsers() {
-  await Promise.allSettled([...browsers.values()].map(browser => browser.close()))
+  await Promise.allSettled([...browsers.values()].map(session => closeBrowserSession(session)))
+  browsers.clear()
 }
 
 const lines = readline.createInterface({input: process.stdin})
