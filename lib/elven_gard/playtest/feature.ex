@@ -10,10 +10,26 @@ defmodule ElvenGard.Playtest.Feature do
 
   alias ElvenGard.Playtest.{Browser, Concurrency, Context, EventCollector, Player, Suite}
   alias ElvenGard.Playtest.Driver.Playwright
-  alias ElvenGard.Playtest.Feature.Timeout
 
   defmacro __using__(opts) do
     async = Keyword.get(opts, :async, false)
+    feature_timeout = Keyword.get(opts, :feature_timeout, 60_000)
+
+    unless feature_timeout == :infinity or
+             (is_integer(feature_timeout) and feature_timeout >= 0) do
+      raise ArgumentError,
+            ":feature_timeout must be a non-negative integer or :infinity, got: #{inspect(feature_timeout)}"
+    end
+
+    Module.register_attribute(__CALLER__.module, :elvengard_playtest_feature_timeout,
+      persist: true
+    )
+
+    Module.put_attribute(
+      __CALLER__.module,
+      :elvengard_playtest_feature_timeout,
+      feature_timeout
+    )
 
     quote do
       use ExUnit.Case, async: unquote(async)
@@ -164,11 +180,7 @@ defmodule ElvenGard.Playtest.Feature do
   ## Private functions
 
   defp feature_timeout(caller) do
-    Timeout.resolve(
-      Module.get_attribute(caller.module, :tag),
-      Module.get_attribute(caller.module, :moduletag),
-      60_000
-    )
+    Module.get_attribute(caller.module, :elvengard_playtest_feature_timeout) || 60_000
   end
 
   defp launch_browser!(driver, opts) do

@@ -100,6 +100,16 @@ released when the driver terminates. This avoids waiting on an unbounded
 Playwright browser-close handshake or overlapping the next browser launch with
 an unfinished driver teardown.
 
+Feature execution has its own timeout that starts after browser and player
+setup. Configure it on the feature case when a real-time scenario needs a
+larger product-action budget:
+
+```elixir
+use ElvenGard.Playtest.Feature,
+  players: [:alice, :bob],
+  feature_timeout: 120_000
+```
+
 ## Runtime overrides
 
 - `PLAYTEST_CACHE_DIR`: change the installation cache.
