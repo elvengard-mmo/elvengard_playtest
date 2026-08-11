@@ -76,6 +76,49 @@ defmodule ElvenGard.Playtest.ConcurrencyTest do
     assert :ok = Concurrency.checkin(gate, second_player_lease)
   end
 
+  test "fills available capacity past a heavier waiting lease" do
+    gate = start_supervised!({Concurrency, name: nil})
+    assert {:ok, first_active} = Concurrency.checkout(gate, self(), 4, 2)
+    assert {:ok, second_active} = Concurrency.checkout(gate, self(), 4, 2)
+    parent = self()
+
+    heavy =
+      Task.async(fn ->
+        {:ok, lease} = Concurrency.checkout(gate, self(), 4, 3)
+        send(parent, {:heavy_acquired, lease})
+
+        receive do
+          :release -> Concurrency.checkin(gate, lease)
+        end
+      end)
+
+    _state = :sys.get_state(gate)
+
+    light =
+      Task.async(fn ->
+        {:ok, lease} = Concurrency.checkout(gate, self(), 4, 2)
+        send(parent, {:light_acquired, lease})
+
+        receive do
+          :release -> Concurrency.checkin(gate, lease)
+        end
+      end)
+
+    _state = :sys.get_state(gate)
+    assert :ok = Concurrency.checkin(gate, first_active)
+    assert_receive {:light_acquired, _lease}
+    refute_receive {:heavy_acquired, _lease}, 50
+
+    send(light.pid, :release)
+    assert :ok = Task.await(light)
+    refute_receive {:heavy_acquired, _lease}, 50
+
+    assert :ok = Concurrency.checkin(gate, second_active)
+    assert_receive {:heavy_acquired, _lease}
+    send(heavy.pid, :release)
+    assert :ok = Task.await(heavy)
+  end
+
   test "holds capacity until the resource owner exits instead of the checkout caller" do
     gate = start_supervised!({Concurrency, name: nil})
     parent = self()
