@@ -45,6 +45,7 @@ try {
 const browsers = new Map()
 const contexts = new Map()
 const pages = new Map()
+const videos = new Map()
 let sequence = 0
 
 function nextId(prefix) {
@@ -154,7 +155,9 @@ const handlers = {
       viewport: params.viewport,
       userAgent: params.user_agent,
       ignoreHTTPSErrors: params.ignore_https_errors,
-      recordVideo: params.record_video_dir ? {dir: params.record_video_dir} : undefined,
+      recordVideo: params.record_video_dir
+        ? {dir: params.record_video_dir, size: params.record_video_size}
+        : undefined,
     })
     const contextId = nextId("context")
     contexts.set(contextId, context)
@@ -282,10 +285,32 @@ const handlers = {
     return params.path
   },
 
+  async "page.video"(params) {
+    const video = pageFor(params).video()
+    if (!video) return null
+
+    const videoId = nextId("video")
+    videos.set(videoId, video)
+    return {video_id: videoId}
+  },
+
   async "page.close"(params) {
     const page = pageFor(params)
     await page.close()
     pages.delete(params.page_id)
+    return true
+  },
+
+  async "video.save_as"(params) {
+    const video = fetchObject(videos, params.video_id, "video")
+    await video.saveAs(params.path)
+    return params.path
+  },
+
+  async "video.delete"(params) {
+    const video = fetchObject(videos, params.video_id, "video")
+    await video.delete()
+    videos.delete(params.video_id)
     return true
   },
 
@@ -407,6 +432,9 @@ async function closeBrowserSession({server}, timeout = 4_000) {
 async function closeAllBrowsers() {
   await Promise.allSettled([...browsers.values()].map(session => closeBrowserSession(session)))
   browsers.clear()
+  contexts.clear()
+  pages.clear()
+  videos.clear()
 }
 
 const lines = readline.createInterface({input: process.stdin})

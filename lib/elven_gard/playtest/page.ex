@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Page do
   Drives one page with precise browser-level inputs suitable for real-time games.
   """
 
-  alias ElvenGard.Playtest.{Context, Options}
+  alias ElvenGard.Playtest.{Context, Options, Video}
   alias ElvenGard.Playtest.Driver.Node
 
   @type t :: %__MODULE__{context: Context.t(), driver: pid(), id: String.t()}
@@ -149,6 +149,15 @@ defmodule ElvenGard.Playtest.Page do
   @spec screenshot(t(), Keyword.t()) :: {:ok, Path.t()} | {:error, Node.error()}
   def screenshot(%__MODULE__{} = page, opts) do
     command(page, "page.screenshot", opts)
+  end
+
+  @spec video(t()) :: {:ok, Video.t() | nil} | {:error, Node.error()}
+  def video(%__MODULE__{} = page) do
+    case command(page, "page.video", []) do
+      {:ok, %{"video_id" => id}} -> {:ok, %Video{driver: page.driver, id: id}}
+      {:ok, nil} -> {:ok, nil}
+      {:error, error} -> {:error, error}
+    end
   end
 
   @spec close(t()) :: :ok | {:error, Node.error()}

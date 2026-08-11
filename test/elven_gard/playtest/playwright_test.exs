@@ -59,6 +59,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
 
     assert {:ok, context} = Context.new(browser, viewport: %{width: 800, height: 600})
     assert {:ok, page} = Page.new(context)
+    assert {:ok, nil} = Page.video(page)
     assert {:ok, %{status: nil}} = Page.visit(page, data_url(@html))
     assert {:ok, true} = Page.visible?(page, "#join")
     assert {:ok, "Join"} = Page.text(page, "#join")
