@@ -118,6 +118,12 @@ defmodule ElvenGard.Playtest.Page do
   @spec mouse_down(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_down(%__MODULE__{} = page, opts \\ []), do: command(page, "mouse.down", opts)
 
+  @spec mouse_hold_until(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def mouse_hold_until(%__MODULE__{} = page, expression, opts \\ [])
+      when is_binary(expression) do
+    command(page, "mouse.hold_until", opts, %{"expression" => expression})
+  end
+
   @spec mouse_up(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_up(%__MODULE__{} = page, opts \\ []), do: command(page, "mouse.up", opts)
 

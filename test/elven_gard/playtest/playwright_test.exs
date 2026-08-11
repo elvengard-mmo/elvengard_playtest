@@ -18,6 +18,10 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
         document.querySelector("#game").addEventListener("pointermove", event => {
           window.events.push(["pointermove", event.clientX, event.clientY])
         })
+        document.querySelector("#game").addEventListener("pointerdown", () => {
+          window.events.push(["pointerdown"])
+        })
+        window.addEventListener("pointerup", () => window.events.push(["pointerup"]))
         document.querySelector("#join").addEventListener("click", () => window.events.push(["click"]))
       </script>
     </body>
@@ -58,7 +62,9 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
 
     assert {:ok, true} = Page.click(page, "#join")
     assert {:ok, true} = Page.key_down(page, "KeyD")
-    assert {:ok, [["click"], ["keydown", "KeyD"]]} = Page.evaluate(page, "window.events")
+    assert {:ok, initial_events} = Page.evaluate(page, "window.events")
+    assert ["click"] in initial_events
+    assert ["keydown", "KeyD"] in initial_events
 
     assert {:ok, true} = Page.key_up(page, "KeyD")
     assert {:ok, true} = Page.mouse_move(page, 120, 80)
@@ -75,10 +81,24 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, true} = Page.evaluate(page, "window.readyForSpecial = true")
     assert {:ok, true} = Task.await(pending_press)
 
+    assert {:ok, true} =
+             Page.mouse_hold_until(
+               page,
+               "window.events.some(event => event[0] === 'pointerdown')",
+               timeout: 1_000,
+               polling: 10
+             )
+
+    assert {:error, %{"code" => "TimeoutError"}} =
+             Page.mouse_hold_until(page, "false", timeout: 20, polling: 10)
+
     assert {:ok, events} = Page.evaluate(page, "window.events")
     assert ["keyup", "KeyD"] in events
     assert ["keydown", "KeyR"] in events
     assert ["keyup", "KeyR"] in events
+    assert ["pointerdown"] in events
+    assert ["pointerup"] in events
+    assert List.last(events) == ["pointerup"]
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
 
     screenshot = Path.join(tmp_dir, "game.png")

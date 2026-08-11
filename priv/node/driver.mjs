@@ -310,6 +310,23 @@ const handlers = {
     return true
   },
 
+  async "mouse.hold_until"(params) {
+    const page = pageFor(params)
+    const input = {button: params.button, clickCount: params.click_count}
+    await page.mouse.down(input)
+
+    try {
+      await page.waitForFunction(params.expression, params.argument, {
+        timeout: params.timeout,
+        polling: params.polling,
+      })
+    } finally {
+      await page.mouse.up(input)
+    }
+
+    return true
+  },
+
   async "mouse.up"(params) {
     await pageFor(params).mouse.up({button: params.button, clickCount: params.click_count})
     return true

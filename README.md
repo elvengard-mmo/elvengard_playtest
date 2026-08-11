@@ -7,7 +7,7 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 ## Capabilities
 
 - real Chromium, Firefox and WebKit browsers;
-- independent `key_down` / `key_up`, condition-synchronized key presses and precise pointer input;
+- independent `key_down` / `key_up`, condition-synchronized key presses and bounded pointer holds;
 - isolated multi-player sessions in one feature;
 - bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
