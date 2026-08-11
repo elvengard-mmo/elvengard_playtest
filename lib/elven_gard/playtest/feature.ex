@@ -26,13 +26,18 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   defmacro feature(message, context_pattern, do: block) do
+    timeout = feature_timeout(__CALLER__)
+
     quote do
+      @tag timeout: :infinity
       test unquote(message), unquote(context_pattern) = playtest_context do
         try do
-          result = unquote(block)
-          ElvenGard.Playtest.Feature.assert_clean!(playtest_context.playtest)
-          ElvenGard.Playtest.Feature.finish(playtest_context.playtest)
-          result
+          ElvenGard.Playtest.Feature.run(unquote(timeout), fn ->
+            result = unquote(block)
+            ElvenGard.Playtest.Feature.assert_clean!(playtest_context.playtest)
+            ElvenGard.Playtest.Feature.finish(playtest_context.playtest)
+            result
+          end)
         rescue
           exception ->
             stacktrace = __STACKTRACE__
@@ -61,6 +66,35 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   ## Public API
+
+  @spec run(timeout(), (-> result)) :: result when result: any()
+  def run(:infinity, callback) when is_function(callback, 0), do: callback.()
+
+  def run(timeout, callback)
+      when is_integer(timeout) and timeout >= 0 and is_function(callback, 0) do
+    task =
+      Task.async(fn ->
+        try do
+          {:ok, callback.()}
+        rescue
+          exception -> {:raised, :error, exception, __STACKTRACE__}
+        catch
+          kind, reason -> {:raised, kind, reason, __STACKTRACE__}
+        end
+      end)
+
+    case Task.yield(task, timeout) do
+      {:ok, {:ok, result}} ->
+        result
+
+      {:ok, {:raised, kind, reason, stacktrace}} ->
+        :erlang.raise(kind, reason, stacktrace)
+
+      nil ->
+        _result = Task.shutdown(task, :brutal_kill)
+        raise ExUnit.TimeoutError, timeout: timeout, type: "Playtest feature"
+    end
+  end
 
   @spec setup(map(), Keyword.t()) :: {:ok, map()}
   def setup(_test_context, opts) do
@@ -127,6 +161,21 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   ## Private functions
+
+  defp feature_timeout(caller) do
+    timeout_from_attribute(Module.get_attribute(caller.module, :tag)) ||
+      timeout_from_attribute(Module.get_attribute(caller.module, :moduletag)) ||
+      60_000
+  end
+
+  defp timeout_from_attribute(values) do
+    values
+    |> List.wrap()
+    |> Enum.find_value(fn
+      tags when is_list(tags) -> Keyword.get(tags, :timeout)
+      _other -> nil
+    end)
+  end
 
   defp launch_browser!(driver, opts) do
     launch_opts = [

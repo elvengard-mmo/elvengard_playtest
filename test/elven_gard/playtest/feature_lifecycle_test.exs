@@ -31,6 +31,24 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
     assert_receive {:DOWN, ^reference, :process, ^driver, :normal}
   end
 
+  test "feature execution owns a timeout that starts after setup" do
+    assert :completed = Feature.run(100, fn -> :completed end)
+
+    assert_raise ExUnit.TimeoutError, ~r/Playtest feature timed out after 10ms/, fn ->
+      Feature.run(10, fn ->
+        receive do
+          :never -> :completed
+        end
+      end)
+    end
+  end
+
+  test "feature execution preserves callback exceptions and their stacktraces" do
+    assert_raise ArgumentError, "product assertion", fn ->
+      Feature.run(100, fn -> raise ArgumentError, "product assertion" end)
+    end
+  end
+
   ## Private functions
 
   defp fixture_path(name) do
