@@ -12,6 +12,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
       <button id="join">Join</button>
       <script>
         window.events = []
+        window.readyForSpecial = false
         window.addEventListener("keydown", event => window.events.push(["keydown", event.code]))
         window.addEventListener("keyup", event => window.events.push(["keyup", event.code]))
         document.querySelector("#game").addEventListener("pointermove", event => {
@@ -62,8 +63,22 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, true} = Page.key_up(page, "KeyD")
     assert {:ok, true} = Page.mouse_move(page, 120, 80)
 
+    pending_press =
+      Task.async(fn ->
+        Page.key_press_when(page, "KeyR", "window.readyForSpecial === true",
+          timeout: 1_000,
+          polling: 10
+        )
+      end)
+
+    _state = :sys.get_state(driver)
+    assert {:ok, true} = Page.evaluate(page, "window.readyForSpecial = true")
+    assert {:ok, true} = Task.await(pending_press)
+
     assert {:ok, events} = Page.evaluate(page, "window.events")
     assert ["keyup", "KeyD"] in events
+    assert ["keydown", "KeyR"] in events
+    assert ["keyup", "KeyR"] in events
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
 
     screenshot = Path.join(tmp_dir, "game.png")

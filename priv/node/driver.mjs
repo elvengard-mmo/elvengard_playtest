@@ -290,6 +290,16 @@ const handlers = {
     return true
   },
 
+  async "keyboard.press_when"(params) {
+    const page = pageFor(params)
+    await page.waitForFunction(params.expression, params.argument, {
+      timeout: params.timeout,
+      polling: params.polling,
+    })
+    await page.keyboard.press(params.key, {delay: params.delay})
+    return true
+  },
+
   async "mouse.move"(params) {
     await pageFor(params).mouse.move(params.x, params.y, {steps: params.steps})
     return true

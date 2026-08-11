@@ -103,6 +103,13 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "keyboard.press", opts, %{"key" => key})
   end
 
+  @spec key_press_when(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def key_press_when(%__MODULE__{} = page, key, expression, opts \\ [])
+      when is_binary(key) and is_binary(expression) do
+    command(page, "keyboard.press_when", opts, %{"key" => key, "expression" => expression})
+  end
+
   @spec mouse_move(t(), number(), number(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_move(%__MODULE__{} = page, x, y, opts \\ []) when is_number(x) and is_number(y) do
     command(page, "mouse.move", opts, %{"x" => x, "y" => y})
