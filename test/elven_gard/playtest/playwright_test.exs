@@ -108,7 +108,9 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert ["keydown", "KeyD"] in initial_events
 
     assert {:ok, true} = Page.key_up(page, "KeyD")
+    assert {:ok, pointer_move_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.mouse_move(page, 120, 80)
+    assert {:ok, pointer_move_finished_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.mouse_click(page)
 
     pending_press =
@@ -167,6 +169,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert ["pointerup"] in events
     assert List.last(events) == ["pointerup"]
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
+    assert pointer_move_finished_at - pointer_move_started_at >= 35
 
     [["button-down", clicked_at], ["button-up", click_released_at] | _rest] = pointer_events
     assert click_released_at - clicked_at >= 70

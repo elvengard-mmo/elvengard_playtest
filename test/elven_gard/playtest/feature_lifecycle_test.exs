@@ -31,8 +31,15 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
     }
 
     contender = Task.async(fn -> Concurrency.checkout(gate, self(), 1) end)
-    close_task = Task.async(fn -> Feature.close(suite, timeout: 500) end)
+    test_process = self()
 
+    close_task =
+      Task.async(fn ->
+        send(test_process, :feature_close_started)
+        Feature.close(suite, timeout: 500)
+      end)
+
+    assert_receive :feature_close_started
     assert_receive {:playtest_event, ^driver, "driver.close_requested", _params}
     assert Task.yield(contender, 0) == nil
 
