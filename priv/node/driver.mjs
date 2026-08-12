@@ -223,6 +223,7 @@ const handlers = {
       position: params.position,
       timeout: params.timeout,
     })
+    await page.waitForTimeout(params.release_delay)
     return true
   },
 
@@ -457,7 +458,9 @@ const handlers = {
   },
 
   async "keyboard.press"(params) {
-    await pageFor(params).keyboard.press(params.key, {delay: params.delay})
+    const page = pageFor(params)
+    await page.keyboard.press(params.key, {delay: params.delay})
+    await page.waitForTimeout(params.release_delay)
     return true
   },
 
@@ -468,6 +471,7 @@ const handlers = {
       polling: params.polling,
     })
     await page.keyboard.press(params.key, {delay: params.delay})
+    await page.waitForTimeout(params.release_delay)
     return true
   },
 
@@ -480,6 +484,8 @@ const handlers = {
     } finally {
       await page.keyboard.up(params.key)
     }
+
+    await page.waitForTimeout(params.release_delay)
 
     return true
   },
@@ -499,6 +505,8 @@ const handlers = {
     } finally {
       await page.keyboard.up(params.key)
     }
+
+    await page.waitForTimeout(params.release_delay)
 
     return true
   },
@@ -526,6 +534,8 @@ const handlers = {
       await page.mouse.up(input)
     }
 
+    await page.waitForTimeout(params.release_delay)
+
     return true
   },
 
@@ -546,6 +556,8 @@ const handlers = {
       await page.mouse.up(input)
     }
 
+    await page.waitForTimeout(params.release_delay)
+
     return true
   },
 
@@ -559,6 +571,8 @@ const handlers = {
     } finally {
       await page.mouse.up(input)
     }
+
+    await page.waitForTimeout(params.release_delay)
 
     return true
   },
