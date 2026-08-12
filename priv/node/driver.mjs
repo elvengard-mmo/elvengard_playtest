@@ -233,6 +233,15 @@ const handlers = {
     return true
   },
 
+  async "page.paste"(params) {
+    const page = pageFor(params)
+    const locator = page.locator(params.selector)
+    await locator.focus()
+    await locator.fill(params.value)
+    await page.waitForTimeout(params.delay)
+    return true
+  },
+
   async "locator.visible"(params) {
     return pageFor(params).locator(params.selector).isVisible()
   },

@@ -53,6 +53,14 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "page.fill", opts, %{"selector" => selector, "value" => value})
   end
 
+  @spec paste(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def paste(%__MODULE__{} = page, selector, value, opts \\ [])
+      when is_binary(selector) and is_binary(value) do
+    opts = HumanInput.put_default(opts, :delay, :click_delay)
+    command(page, "page.paste", opts, %{"selector" => selector, "value" => value})
+  end
+
   @spec visible?(t(), String.t()) :: {:ok, boolean()} | {:error, Node.error()}
   def visible?(%__MODULE__{} = page, selector) when is_binary(selector) do
     command(page, "locator.visible", [], %{"selector" => selector})
