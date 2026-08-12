@@ -78,15 +78,18 @@ config :elvengard_playtest, :human_input,
   click_delay: 80,
   key_press_delay: 80,
   minimum_hold_duration: 80,
+  release_settle_delay: 40,
   pointer_move_delay: 40,
   pointer_move_steps: 6,
   typing_delay: 30
 ```
 
 Each Page call also accepts the corresponding Playwright option (`:delay`,
-`:minimum_duration_ms` or `:steps`) when a product interaction needs a specific
-timing. Raw down/up primitives remain available for genuinely continuous input;
-use the high-level helpers for clicks and presses.
+`:minimum_duration_ms`, `:release_delay` or `:steps`) when a product interaction
+needs a specific timing. Composite holds and mouse clicks settle briefly after
+release so browser event handlers and realtime transports can observe the released
+state before the next action. Raw down/up primitives remain available for genuinely
+continuous input; use the high-level helpers for clicks and presses.
 
 `fill/4` models human typing one character at a time. Use `paste/4` for opaque
 values a human would paste, such as invitation tokens, recovery codes or long

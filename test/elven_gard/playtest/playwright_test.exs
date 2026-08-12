@@ -90,7 +90,9 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, 1} = Page.count(page, "canvas")
     assert {:ok, true} = Page.wait_for_selector(page, "#game")
 
+    assert {:ok, page_click_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.click(page, "#join")
+    assert {:ok, page_click_finished_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.fill(page, "#name", "Alice")
     assert {:ok, "Alice"} = Page.evaluate(page, "document.querySelector('#name').value")
     assert {:ok, true} = Page.paste(page, "#name", "opaque-invitation-token")
@@ -100,8 +102,12 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
 
     assert {:ok, true} = Page.fill(page, "#name", "Alice")
     assert {:ok, true} = Page.click(page, "#join")
+    assert {:ok, key_press_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.key_press(page, "KeyR")
+    assert {:ok, key_press_finished_at} = Page.evaluate(page, "performance.now()")
+    assert {:ok, key_hold_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.key_hold_for(page, "KeyW", 40)
+    assert {:ok, key_hold_finished_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.key_down(page, "KeyD")
     assert {:ok, initial_events} = Page.evaluate(page, "window.events")
     assert ["click"] in initial_events
@@ -111,7 +117,9 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, pointer_move_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.mouse_move(page, 120, 80)
     assert {:ok, pointer_move_finished_at} = Page.evaluate(page, "performance.now()")
+    assert {:ok, mouse_click_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.mouse_click(page)
+    assert {:ok, mouse_click_finished_at} = Page.evaluate(page, "performance.now()")
 
     pending_press =
       Task.async(fn ->
@@ -170,6 +178,10 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert List.last(events) == ["pointerup"]
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
     assert pointer_move_finished_at - pointer_move_started_at >= 35
+    assert page_click_finished_at - page_click_started_at >= 105
+    assert key_press_finished_at - key_press_started_at >= 105
+    assert key_hold_finished_at - key_hold_started_at >= 75
+    assert mouse_click_finished_at - mouse_click_started_at >= 105
 
     [["button-down", clicked_at], ["button-up", click_released_at] | _rest] = pointer_events
     assert click_released_at - clicked_at >= 70

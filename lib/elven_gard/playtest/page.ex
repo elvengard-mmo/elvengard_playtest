@@ -41,7 +41,11 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec click(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def click(%__MODULE__{} = page, selector, opts \\ []) when is_binary(selector) do
-    opts = HumanInput.put_default(opts, :delay, :click_delay)
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :click_delay)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "page.click", opts, %{"selector" => selector})
   end
 
@@ -111,7 +115,11 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec key_press(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def key_press(%__MODULE__{} = page, key, opts \\ []) do
-    opts = HumanInput.put_default(opts, :delay, :key_press_delay)
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :key_press_delay)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "keyboard.press", opts, %{"key" => key})
   end
 
@@ -119,7 +127,11 @@ defmodule ElvenGard.Playtest.Page do
           {:ok, true} | {:error, Node.error()}
   def key_press_when(%__MODULE__{} = page, key, expression, opts \\ [])
       when is_binary(key) and is_binary(expression) do
-    opts = HumanInput.put_default(opts, :delay, :key_press_delay)
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :key_press_delay)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "keyboard.press_when", opts, %{"key" => key, "expression" => expression})
   end
 
@@ -127,6 +139,7 @@ defmodule ElvenGard.Playtest.Page do
           {:ok, true} | {:error, Node.error()}
   def key_hold_for(%__MODULE__{} = page, key, duration_ms, opts \\ [])
       when is_binary(key) and is_integer(duration_ms) and duration_ms > 0 do
+    opts = HumanInput.put_default(opts, :release_delay, :release_settle_delay)
     command(page, "keyboard.hold_for", opts, %{"key" => key, "duration_ms" => duration_ms})
   end
 
@@ -134,7 +147,11 @@ defmodule ElvenGard.Playtest.Page do
           {:ok, true} | {:error, Node.error()}
   def key_hold_until(%__MODULE__{} = page, key, expression, opts \\ [])
       when is_binary(key) and is_binary(expression) do
-    opts = HumanInput.put_default(opts, :minimum_duration_ms, :minimum_hold_duration)
+    opts =
+      opts
+      |> HumanInput.put_default(:minimum_duration_ms, :minimum_hold_duration)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "keyboard.hold_until", opts, %{"key" => key, "expression" => expression})
   end
 
@@ -150,7 +167,11 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec mouse_click(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_click(%__MODULE__{} = page, opts \\ []) do
-    opts = HumanInput.put_default(opts, :delay, :click_delay)
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :click_delay)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "mouse.click", opts)
   end
 
@@ -160,13 +181,18 @@ defmodule ElvenGard.Playtest.Page do
   @spec mouse_hold_until(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_hold_until(%__MODULE__{} = page, expression, opts \\ [])
       when is_binary(expression) do
-    opts = HumanInput.put_default(opts, :minimum_duration_ms, :minimum_hold_duration)
+    opts =
+      opts
+      |> HumanInput.put_default(:minimum_duration_ms, :minimum_hold_duration)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
     command(page, "mouse.hold_until", opts, %{"expression" => expression})
   end
 
   @spec mouse_hold_for(t(), pos_integer(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_hold_for(%__MODULE__{} = page, duration_ms, opts \\ [])
       when is_integer(duration_ms) and duration_ms > 0 do
+    opts = HumanInput.put_default(opts, :release_delay, :release_settle_delay)
     command(page, "mouse.hold_for", opts, %{"duration_ms" => duration_ms})
   end
 
