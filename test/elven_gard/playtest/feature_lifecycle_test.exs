@@ -5,7 +5,7 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
   alias ElvenGard.Playtest.Driver.Node
 
   @tag timeout: 3_000
-  test "feature cleanup keeps browser capacity until a stalled driver is stopped" do
+  test "feature cleanup delegates browser shutdown to its owning driver" do
     driver =
       start_supervised!(
         {Node,
@@ -31,13 +31,14 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
     }
 
     contender = Task.async(fn -> Concurrency.checkout(gate, self(), 1) end)
-    close_task = Task.async(fn -> Feature.close(suite, timeout: 100) end)
+    close_task = Task.async(fn -> Feature.close(suite, timeout: 500) end)
 
-    assert_receive {:playtest_event, ^driver, "browser.close_requested", _params}
+    assert_receive {:playtest_event, ^driver, "driver.close_requested", _params}
     assert Task.yield(contender, 0) == nil
 
     assert :ok = Task.await(close_task)
     assert_receive {:DOWN, ^reference, :process, ^driver, :normal}
+    refute_receive {:playtest_event, ^driver, "browser.close_requested", _params}
     assert {:ok, _lease} = Task.await(contender)
   end
 

@@ -112,7 +112,7 @@ defmodule ElvenGard.Playtest.Driver.Node do
 
   @impl true
   def terminate(_reason, state) do
-    shutdown_driver(state.port, state.buffer)
+    shutdown_driver(state.port, state.buffer, state.owner)
     close_port(state.port)
     :ok
   end
@@ -199,23 +199,23 @@ defmodule ElvenGard.Playtest.Driver.Node do
       raise "Playtest cannot start its sidecar because the Node.js executable was not found"
   end
 
-  defp shutdown_driver(port, buffer) do
+  defp shutdown_driver(port, buffer, owner) do
     if Port.info(port) do
       payload = Jason.encode_to_iodata!(%{id: @shutdown_id, method: "driver.close", params: %{}})
       true = Port.command(port, [payload, ?\n])
       deadline = System.monotonic_time(:millisecond) + @shutdown_timeout
-      await_shutdown(port, buffer, deadline)
+      await_shutdown(port, buffer, owner, deadline)
     end
   catch
     :error, :badarg -> :ok
   end
 
-  defp await_shutdown(port, buffer, deadline) do
+  defp await_shutdown(port, buffer, owner, deadline) do
     timeout = max(deadline - System.monotonic_time(:millisecond), 0)
 
     receive do
       {^port, {:data, {:noeol, chunk}}} ->
-        await_shutdown(port, buffer <> chunk, deadline)
+        await_shutdown(port, buffer <> chunk, owner, deadline)
 
       {^port, {:data, {:eol, line}}} ->
         case Jason.decode(buffer <> line) do
@@ -228,8 +228,12 @@ defmodule ElvenGard.Playtest.Driver.Node do
                 "error_code=driver_shutdown_failed cause=#{inspect(error)}"
             )
 
+          {:ok, %{"event" => event, "params" => params}} ->
+            send(owner, {:playtest_event, self(), event, params})
+            await_shutdown(port, "", owner, deadline)
+
           _message ->
-            await_shutdown(port, "", deadline)
+            await_shutdown(port, "", owner, deadline)
         end
 
       {^port, {:exit_status, _status}} ->
