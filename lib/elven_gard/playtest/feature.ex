@@ -118,7 +118,8 @@ defmodule ElvenGard.Playtest.Feature do
 
   @spec setup(map(), Keyword.t()) :: {:ok, map()}
   def setup(_test_context, opts) do
-    collector = ExUnit.Callbacks.start_supervised!({EventCollector, owner: self()})
+    collector =
+      ExUnit.Callbacks.start_supervised!({EventCollector, owner: self(), forward_events: false})
 
     driver =
       ExUnit.Callbacks.start_supervised!(
