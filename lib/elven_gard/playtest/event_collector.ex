@@ -7,7 +7,13 @@ defmodule ElvenGard.Playtest.EventCollector do
 
   @type event :: %{name: String.t(), params: map()}
 
-  defstruct [:owner, events: :queue.new(), event_limit: @default_event_limit, failures: []]
+  defstruct [
+    :owner,
+    events: :queue.new(),
+    event_limit: @default_event_limit,
+    failures: [],
+    forward_events: true
+  ]
 
   ## Public API
 
@@ -26,7 +32,8 @@ defmodule ElvenGard.Playtest.EventCollector do
     {:ok,
      %__MODULE__{
        owner: Keyword.fetch!(opts, :owner),
-       event_limit: Keyword.get(opts, :event_limit, @default_event_limit)
+       event_limit: Keyword.get(opts, :event_limit, @default_event_limit),
+       forward_events: Keyword.get(opts, :forward_events, true)
      }}
   end
 
@@ -38,7 +45,7 @@ defmodule ElvenGard.Playtest.EventCollector do
 
   @impl true
   def handle_info({:playtest_event, driver, name, params} = message, state) do
-    send(state.owner, message)
+    if state.forward_events, do: send(state.owner, message)
     event = %{name: name, params: Map.put(params, "driver", inspect(driver))}
 
     if failure_event?(event) do
