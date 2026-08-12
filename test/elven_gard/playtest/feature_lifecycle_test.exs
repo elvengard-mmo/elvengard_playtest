@@ -16,8 +16,8 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
 
     reference = Process.monitor(driver)
 
-    :ok = Concurrency.ensure_started()
-    {:ok, lease} = Concurrency.checkout(Concurrency, driver, 4)
+    gate = start_supervised!({Concurrency, name: nil})
+    {:ok, lease} = Concurrency.checkout(gate, driver, 4)
 
     suite = %Suite{
       browser: %Browser{
@@ -30,7 +30,7 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
       players: %{}
     }
 
-    contender = Task.async(fn -> Concurrency.checkout(Concurrency, self(), 1) end)
+    contender = Task.async(fn -> Concurrency.checkout(gate, self(), 1) end)
     close_task = Task.async(fn -> Feature.close(suite, timeout: 100) end)
 
     assert_receive {:playtest_event, ^driver, "browser.close_requested", _params}
@@ -39,6 +39,24 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
     assert :ok = Task.await(close_task)
     assert_receive {:DOWN, ^reference, :process, ^driver, :normal}
     assert {:ok, _lease} = Task.await(contender)
+  end
+
+  test "feature execution owns a timeout that starts after setup" do
+    assert :completed = Feature.run(100, fn -> :completed end)
+
+    assert_raise ExUnit.TimeoutError, ~r/Playtest feature timed out after 10ms/, fn ->
+      Feature.run(10, fn ->
+        receive do
+          :never -> :completed
+        end
+      end)
+    end
+  end
+
+  test "feature execution preserves callback exceptions and their stacktraces" do
+    assert_raise ArgumentError, "product assertion", fn ->
+      Feature.run(100, fn -> raise ArgumentError, "product assertion" end)
+    end
   end
 
   ## Private functions

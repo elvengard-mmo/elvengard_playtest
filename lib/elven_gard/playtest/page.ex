@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Page do
   Drives one page with precise browser-level inputs suitable for real-time games.
   """
 
-  alias ElvenGard.Playtest.{Context, Options}
+  alias ElvenGard.Playtest.{CanvasVideo, Context, Options, Video}
   alias ElvenGard.Playtest.Driver.Node
 
   @type t :: %__MODULE__{context: Context.t(), driver: pid(), id: String.t()}
@@ -103,6 +103,20 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "keyboard.press", opts, %{"key" => key})
   end
 
+  @spec key_press_when(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def key_press_when(%__MODULE__{} = page, key, expression, opts \\ [])
+      when is_binary(key) and is_binary(expression) do
+    command(page, "keyboard.press_when", opts, %{"key" => key, "expression" => expression})
+  end
+
+  @spec key_hold_until(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def key_hold_until(%__MODULE__{} = page, key, expression, opts \\ [])
+      when is_binary(key) and is_binary(expression) do
+    command(page, "keyboard.hold_until", opts, %{"key" => key, "expression" => expression})
+  end
+
   @spec mouse_move(t(), number(), number(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_move(%__MODULE__{} = page, x, y, opts \\ []) when is_number(x) and is_number(y) do
     command(page, "mouse.move", opts, %{"x" => x, "y" => y})
@@ -110,6 +124,18 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec mouse_down(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_down(%__MODULE__{} = page, opts \\ []), do: command(page, "mouse.down", opts)
+
+  @spec mouse_hold_until(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def mouse_hold_until(%__MODULE__{} = page, expression, opts \\ [])
+      when is_binary(expression) do
+    command(page, "mouse.hold_until", opts, %{"expression" => expression})
+  end
+
+  @spec mouse_hold_for(t(), pos_integer(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def mouse_hold_for(%__MODULE__{} = page, duration_ms, opts \\ [])
+      when is_integer(duration_ms) and duration_ms > 0 do
+    command(page, "mouse.hold_for", opts, %{"duration_ms" => duration_ms})
+  end
 
   @spec mouse_up(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_up(%__MODULE__{} = page, opts \\ []), do: command(page, "mouse.up", opts)
@@ -123,6 +149,48 @@ defmodule ElvenGard.Playtest.Page do
   @spec screenshot(t(), Keyword.t()) :: {:ok, Path.t()} | {:error, Node.error()}
   def screenshot(%__MODULE__{} = page, opts) do
     command(page, "page.screenshot", opts)
+  end
+
+  @spec video(t()) :: {:ok, Video.t() | nil} | {:error, Node.error()}
+  def video(%__MODULE__{} = page) do
+    case command(page, "page.video", []) do
+      {:ok, %{"video_id" => id}} -> {:ok, %Video{driver: page.driver, id: id}}
+      {:ok, nil} -> {:ok, nil}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  @spec start_canvas_video(t(), String.t(), Keyword.t()) ::
+          {:ok, CanvasVideo.t()} | {:error, Node.error()}
+  def start_canvas_video(%__MODULE__{} = page, selector, opts \\ [])
+      when is_binary(selector) do
+    params =
+      opts
+      |> Options.encode()
+      |> Map.merge(%{"page_id" => page.id, "selector" => selector})
+
+    case Node.command(page.driver, "canvas_video.start", params) do
+      {:ok,
+       %{
+         "recording_id" => id,
+         "mime_type" => mime_type,
+         "width" => width,
+         "height" => height,
+         "fps" => fps
+       }} ->
+        {:ok,
+         %CanvasVideo{
+           driver: page.driver,
+           id: id,
+           mime_type: mime_type,
+           width: width,
+           height: height,
+           fps: fps
+         }}
+
+      {:error, error} ->
+        {:error, error}
+    end
   end
 
   @spec close(t()) :: :ok | {:error, Node.error()}

@@ -1,7 +1,7 @@
 defmodule ElvenGard.Playtest.Concurrency do
   @moduledoc """
-  Fair process gate that prevents asynchronous browser features from exhausting
-  CPU, file descriptors or graphics resources on one test runner.
+  Capacity-aware process gate that prevents asynchronous browser features from
+  exhausting CPU, file descriptors or graphics resources on one test runner.
   """
 
   use GenServer
@@ -115,20 +115,19 @@ defmodule ElvenGard.Playtest.Concurrency do
   end
 
   defp grant_waiting(state) do
-    case :queue.out(state.waiting) do
-      {:empty, _waiting} ->
+    waiting = :queue.to_list(state.waiting)
+
+    case Enum.split_while(waiting, fn {_from, _owner, limit, weight} ->
+           not capacity_available?(state, limit, weight)
+         end) do
+      {_blocked, []} ->
         state
 
-      {{:value, {from, owner, limit, weight}}, waiting} ->
-        state = %{state | waiting: waiting}
-
-        if capacity_available?(state, limit, weight) do
-          {lease, state} = grant(state, owner, weight)
-          GenServer.reply(from, {:ok, lease})
-          grant_waiting(state)
-        else
-          %{state | waiting: :queue.in_r({from, owner, limit, weight}, waiting)}
-        end
+      {blocked, [{from, owner, _limit, weight} | remaining]} ->
+        state = %{state | waiting: :queue.from_list(blocked ++ remaining)}
+        {lease, state} = grant(state, owner, weight)
+        GenServer.reply(from, {:ok, lease})
+        grant_waiting(state)
     end
   end
 

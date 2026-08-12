@@ -16,6 +16,23 @@ defmodule ElvenGard.Playtest.Feature do
 
   defmacro __using__(opts) do
     async = Keyword.get(opts, :async, false)
+    feature_timeout = Keyword.get(opts, :feature_timeout, 60_000)
+
+    unless feature_timeout == :infinity or
+             (is_integer(feature_timeout) and feature_timeout >= 0) do
+      raise ArgumentError,
+            ":feature_timeout must be a non-negative integer or :infinity, got: #{inspect(feature_timeout)}"
+    end
+
+    Module.register_attribute(__CALLER__.module, :elvengard_playtest_feature_timeout,
+      persist: true
+    )
+
+    Module.put_attribute(
+      __CALLER__.module,
+      :elvengard_playtest_feature_timeout,
+      feature_timeout
+    )
 
     quote do
       use ExUnit.Case, async: unquote(async)
@@ -29,13 +46,18 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   defmacro feature(message, context_pattern, do: block) do
+    timeout = feature_timeout(__CALLER__)
+
     quote do
+      @tag timeout: :infinity
       test unquote(message), unquote(context_pattern) = playtest_context do
         try do
-          result = unquote(block)
-          ElvenGard.Playtest.Feature.assert_clean!(playtest_context.playtest)
-          ElvenGard.Playtest.Feature.finish(playtest_context.playtest)
-          result
+          ElvenGard.Playtest.Feature.run(unquote(timeout), fn ->
+            result = unquote(block)
+            ElvenGard.Playtest.Feature.assert_clean!(playtest_context.playtest)
+            ElvenGard.Playtest.Feature.finish(playtest_context.playtest)
+            result
+          end)
         rescue
           exception ->
             stacktrace = __STACKTRACE__
@@ -64,6 +86,35 @@ defmodule ElvenGard.Playtest.Feature do
   end
 
   ## Public API
+
+  @spec run(timeout(), (-> result)) :: result when result: any()
+  def run(:infinity, callback) when is_function(callback, 0), do: callback.()
+
+  def run(timeout, callback)
+      when is_integer(timeout) and timeout >= 0 and is_function(callback, 0) do
+    task =
+      Task.async(fn ->
+        try do
+          {:ok, callback.()}
+        rescue
+          exception -> {:raised, :error, exception, __STACKTRACE__}
+        catch
+          kind, reason -> {:raised, kind, reason, __STACKTRACE__}
+        end
+      end)
+
+    case Task.yield(task, timeout) do
+      {:ok, {:ok, result}} ->
+        result
+
+      {:ok, {:raised, kind, reason, stacktrace}} ->
+        :erlang.raise(kind, reason, stacktrace)
+
+      nil ->
+        _result = Task.shutdown(task, :brutal_kill)
+        raise ExUnit.TimeoutError, timeout: timeout, type: "Playtest feature"
+    end
+  end
 
   @spec setup(map(), Keyword.t()) :: {:ok, map()}
   def setup(_test_context, opts) do
@@ -134,6 +185,10 @@ defmodule ElvenGard.Playtest.Feature do
 
   ## Private functions
 
+  defp feature_timeout(caller) do
+    Module.get_attribute(caller.module, :elvengard_playtest_feature_timeout) || 60_000
+  end
+
   defp launch_browser!(driver, opts) do
     launch_opts = [
       browser: Keyword.get(opts, :browser, :chromium),
@@ -163,11 +218,12 @@ defmodule ElvenGard.Playtest.Feature do
     names = Keyword.get(opts, :players, [:player])
     base_url = Keyword.get(opts, :base_url)
     context_opts = Keyword.get(opts, :context, viewport: %{width: 1_280, height: 800})
+    tracing_opts = Keyword.get(opts, :tracing, [])
 
     Map.new(names, fn name ->
       {:ok, context} = Context.new(browser, context_opts)
       :ok = Context.install_probe(context)
-      :ok = Context.start_tracing(context)
+      :ok = Context.start_tracing(context, tracing_opts)
       {:ok, page} = Context.new_page(context)
 
       if base_url do

@@ -7,10 +7,11 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 ## Capabilities
 
 - real Chromium, Firefox and WebKit browsers;
-- independent `key_down` / `key_up` and precise pointer input;
+- independent `key_down` / `key_up`, condition-bounded key holds, synchronized key presses and timed or condition-bounded pointer holds;
 - isolated multi-player sessions in one feature;
 - bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
+- exact canvas-only video intervals independent from page setup and teardown;
 - console errors, page crashes and WebSocket frame events;
 - screenshots, Playwright traces and event logs on failure;
 - pinned runtime installation outside the consuming project.
@@ -69,9 +70,13 @@ defmodule MyGame.MovementFeature do
     assert :ok = Probe.wait_until_ready(players.alice.page)
     assert {:ok, before} = Probe.call(players.alice.page, "state")
 
-    assert {:ok, true} = Page.key_down(players.alice.page, "KeyD")
-    assert {:ok, _frame} = Probe.wait_for_frames(players.alice.page, 10)
-    assert {:ok, true} = Page.key_up(players.alice.page, "KeyD")
+    assert {:ok, true} =
+             Page.key_hold_until(
+               players.alice.page,
+               "KeyD",
+               "window.__gameTest.call('rendered').player.x > #{before["player"]["x"] + 20}",
+               timeout: 5_000
+             )
 
     assert {:ok, after_move} = Probe.call(players.alice.page, "rendered")
     assert after_move["player"]["x"] > before["player"]["x"]
@@ -80,6 +85,41 @@ end
 ```
 
 Feature failures write one screenshot and trace per player plus `events.json` under `tmp/playtest`.
+
+## Exact canvas video
+
+Use a canvas recording when a gameplay artifact must exclude menus, camera setup
+and browser UI. The interval starts and stops explicitly, independently from the
+page lifecycle:
+
+```elixir
+alias ElvenGard.Playtest.{CanvasVideo, Page, Video}
+
+{:ok, recording} =
+  Page.start_canvas_video(page, "#game-canvas-host canvas",
+    fps: 60,
+    video_bits_per_second: 8_000_000
+  )
+
+# Drive the real game through Page while the canvas is recorded.
+
+{:ok, video} = CanvasVideo.stop(recording)
+{:ok, "tmp/firebomb.webm"} = Video.save_as(video, "tmp/firebomb.webm")
+:ok = Video.delete(video)
+```
+
+`CanvasVideo.cancel/1` stops and discards an interval when its surrounding
+scenario fails.
+
+Playwright trace screenshots are enabled by default. For multi-player canvas
+games, continuous screenshots can be disabled while preserving DOM snapshots,
+sources, network events and Playtest's final failure screenshot:
+
+```elixir
+use ElvenGard.Playtest.Feature,
+  players: [:alice, :bob],
+  tracing: [screenshots: false]
+```
 
 Playtest runs up to four browser capacity slots at a time by default while the
 rest wait without disabling ExUnit async execution. Override it per suite with
@@ -97,6 +137,16 @@ Playwright browser-close handshake or overlapping the next browser launch with
 an unfinished driver teardown. Cleanup first closes the browser gracefully
 within a fixed deadline, then force-kills the owned browser process through
 Playwright before stopping the sidecar if that deadline is exceeded.
+
+Feature execution has its own timeout that starts after browser and player
+setup. Configure it on the feature case when a real-time scenario needs a
+larger product-action budget:
+
+```elixir
+use ElvenGard.Playtest.Feature,
+  players: [:alice, :bob],
+  feature_timeout: 120_000
+```
 
 ## Runtime overrides
 
