@@ -504,7 +504,9 @@ const handlers = {
   },
 
   async "mouse.move"(params) {
-    await pageFor(params).mouse.move(params.x, params.y, {steps: params.steps})
+    const page = pageFor(params)
+    await page.mouse.move(params.x, params.y, {steps: params.steps})
+    await page.waitForTimeout(params.delay)
     return true
   },
 

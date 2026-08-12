@@ -140,7 +140,11 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec mouse_move(t(), number(), number(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_move(%__MODULE__{} = page, x, y, opts \\ []) when is_number(x) and is_number(y) do
-    opts = HumanInput.put_default(opts, :steps, :pointer_move_steps)
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :pointer_move_delay)
+      |> HumanInput.put_default(:steps, :pointer_move_steps)
+
     command(page, "mouse.move", opts, %{"x" => x, "y" => y})
   end
 

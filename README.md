@@ -78,6 +78,7 @@ config :elvengard_playtest, :human_input,
   click_delay: 80,
   key_press_delay: 80,
   minimum_hold_duration: 80,
+  pointer_move_delay: 40,
   pointer_move_steps: 6,
   typing_delay: 30
 ```
