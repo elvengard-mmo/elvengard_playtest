@@ -93,6 +93,12 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, true} = Page.click(page, "#join")
     assert {:ok, true} = Page.fill(page, "#name", "Alice")
     assert {:ok, "Alice"} = Page.evaluate(page, "document.querySelector('#name').value")
+    assert {:ok, true} = Page.paste(page, "#name", "opaque-invitation-token")
+
+    assert {:ok, "opaque-invitation-token"} =
+             Page.evaluate(page, "document.querySelector('#name').value")
+
+    assert {:ok, true} = Page.fill(page, "#name", "Alice")
     assert {:ok, true} = Page.click(page, "#join")
     assert {:ok, true} = Page.key_press(page, "KeyR")
     assert {:ok, true} = Page.key_hold_for(page, "KeyW", 40)

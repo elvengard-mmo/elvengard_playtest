@@ -65,6 +65,7 @@ game cannot miss a press between two render frames:
 ```elixir
 {:ok, true} = Page.click(page, "#join")
 {:ok, true} = Page.fill(page, "#player-name", "Alice")
+{:ok, true} = Page.paste(page, "#invitation-code", invitation)
 {:ok, true} = Page.key_press(page, "Space")
 {:ok, true} = Page.mouse_click(page)
 {:ok, true} = Page.key_hold_for(page, "KeyD", 250)
@@ -85,6 +86,11 @@ Each Page call also accepts the corresponding Playwright option (`:delay`,
 `:minimum_duration_ms` or `:steps`) when a product interaction needs a specific
 timing. Raw down/up primitives remain available for genuinely continuous input;
 use the high-level helpers for clicks and presses.
+
+`fill/4` models human typing one character at a time. Use `paste/4` for opaque
+values a human would paste, such as invitation tokens, recovery codes or long
+identifiers; it inserts the complete value atomically, dispatches the browser's
+normal input event, then observes the configured human click delay.
 
 ## ExUnit feature
 
