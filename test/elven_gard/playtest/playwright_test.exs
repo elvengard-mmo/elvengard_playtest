@@ -10,25 +10,48 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     <body>
       <canvas id="game" width="320" height="180"></canvas>
       <button id="join">Join</button>
+      <input id="name" />
       <script>
         window.events = []
+        window.canvasPointerEvents = []
+        window.inputEvents = []
+        window.keyEvents = []
         window.pointerEvents = []
         window.readyForSpecial = false
         window.releaseMovement = false
-        window.addEventListener("keydown", event => window.events.push(["keydown", event.code]))
-        window.addEventListener("keyup", event => window.events.push(["keyup", event.code]))
+        window.addEventListener("keydown", event => {
+          window.events.push(["keydown", event.code])
+          window.keyEvents.push(["keydown", event.code, performance.now()])
+        })
+        window.addEventListener("keyup", event => {
+          window.events.push(["keyup", event.code])
+          window.keyEvents.push(["keyup", event.code, performance.now()])
+        })
         document.querySelector("#game").addEventListener("pointermove", event => {
           window.events.push(["pointermove", event.clientX, event.clientY])
         })
         document.querySelector("#game").addEventListener("pointerdown", () => {
           window.events.push(["pointerdown"])
           window.pointerEvents.push(["pointerdown", performance.now()])
+          window.canvasPointerEvents.push(["pointerdown", performance.now()])
+        })
+        document.querySelector("#game").addEventListener("pointerup", () => {
+          window.canvasPointerEvents.push(["pointerup", performance.now()])
         })
         window.addEventListener("pointerup", () => {
           window.events.push(["pointerup"])
           window.pointerEvents.push(["pointerup", performance.now()])
         })
         document.querySelector("#join").addEventListener("click", () => window.events.push(["click"]))
+        document.querySelector("#join").addEventListener("pointerdown", () => {
+          window.pointerEvents.push(["button-down", performance.now()])
+        })
+        document.querySelector("#join").addEventListener("pointerup", () => {
+          window.pointerEvents.push(["button-up", performance.now()])
+        })
+        document.querySelector("#name").addEventListener("input", event => {
+          window.inputEvents.push([event.target.value, performance.now()])
+        })
       </script>
     </body>
   </html>
@@ -68,6 +91,11 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, true} = Page.wait_for_selector(page, "#game")
 
     assert {:ok, true} = Page.click(page, "#join")
+    assert {:ok, true} = Page.fill(page, "#name", "Alice")
+    assert {:ok, "Alice"} = Page.evaluate(page, "document.querySelector('#name').value")
+    assert {:ok, true} = Page.click(page, "#join")
+    assert {:ok, true} = Page.key_press(page, "KeyR")
+    assert {:ok, true} = Page.key_hold_for(page, "KeyW", 40)
     assert {:ok, true} = Page.key_down(page, "KeyD")
     assert {:ok, initial_events} = Page.evaluate(page, "window.events")
     assert ["click"] in initial_events
@@ -75,6 +103,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
 
     assert {:ok, true} = Page.key_up(page, "KeyD")
     assert {:ok, true} = Page.mouse_move(page, 120, 80)
+    assert {:ok, true} = Page.mouse_click(page)
 
     pending_press =
       Task.async(fn ->
@@ -118,9 +147,12 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
 
     assert {:ok, events} = Page.evaluate(page, "window.events")
     assert {:ok, pointer_events} = Page.evaluate(page, "window.pointerEvents")
+    assert {:ok, canvas_pointer_events} = Page.evaluate(page, "window.canvasPointerEvents")
     assert ["keyup", "KeyD"] in events
     assert ["keydown", "KeyR"] in events
     assert ["keyup", "KeyR"] in events
+    assert ["keydown", "KeyW"] in events
+    assert ["keyup", "KeyW"] in events
     assert ["keydown", "KeyA"] in events
     assert ["keyup", "KeyA"] in events
     assert ["keydown", "KeyS"] in events
@@ -130,8 +162,36 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert List.last(events) == ["pointerup"]
     assert Enum.any?(events, &match?(["pointermove", 120, 80], &1))
 
+    [["button-down", clicked_at], ["button-up", click_released_at] | _rest] = pointer_events
+    assert click_released_at - clicked_at >= 70
+
+    [["pointerdown", clicked_at], ["pointerup", click_released_at] | _rest] =
+      canvas_pointer_events
+
+    assert click_released_at - clicked_at >= 70
+
     [["pointerdown", held_at], ["pointerup", released_at]] = Enum.take(pointer_events, -2)
     assert released_at - held_at >= 35
+
+    assert {:ok, key_events} = Page.evaluate(page, "window.keyEvents")
+
+    [["keydown", "KeyR", pressed_at], ["keyup", "KeyR", released_at] | _rest] =
+      Enum.filter(key_events, &(Enum.at(&1, 1) == "KeyR"))
+
+    assert released_at - pressed_at >= 70
+
+    [["keydown", "KeyW", pressed_at], ["keyup", "KeyW", released_at]] =
+      Enum.filter(key_events, &(Enum.at(&1, 1) == "KeyW"))
+
+    assert released_at - pressed_at >= 35
+
+    assert {:ok, input_events} = Page.evaluate(page, "window.inputEvents")
+    [["A", typed_at] | _rest] = input_events
+    ["Alice", completed_at] = List.last(input_events)
+    assert completed_at - typed_at >= 100
+
+    pointer_moves = Enum.filter(events, &match?(["pointermove", _x, _y], &1))
+    assert length(pointer_moves) >= 6
 
     screenshot = Path.join(tmp_dir, "game.png")
     assert {:ok, ^screenshot} = Page.screenshot(page, path: screenshot)
