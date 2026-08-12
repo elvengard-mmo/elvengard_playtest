@@ -179,8 +179,7 @@ defmodule ElvenGard.Playtest.Feature do
   def close(%Suite{} = suite, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, @cleanup_timeout)
     driver_timeout = Keyword.get(opts, :driver_timeout, @driver_cleanup_timeout)
-    close_browser(suite.browser, timeout)
-    close_driver(suite.driver, driver_timeout)
+    close_driver(suite.driver, timeout + driver_timeout)
   end
 
   ## Private functions
@@ -236,15 +235,6 @@ defmodule ElvenGard.Playtest.Feature do
 
   defp default_browser_path() do
     System.get_env("PLAYTEST_BROWSER_PATH")
-  end
-
-  defp close_browser(browser, timeout) do
-    case Browser.close(browser, timeout: timeout, checkin: false) do
-      :ok -> :ok
-      {:error, error} -> log_close_error("browser", browser.name, error)
-    end
-  catch
-    :exit, reason -> log_close_error("browser", browser.name, reason)
   end
 
   defp close_driver(driver, timeout) do

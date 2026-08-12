@@ -14,7 +14,10 @@ function write(message) {
 lines.on("line", line => {
   const request = JSON.parse(line)
 
-  if (request.method === "browser.close") {
+  if (request.method === "driver.close") {
+    write({event: "driver.close_requested", params: {}})
+    setTimeout(() => write({id: request.id, result: true}), 100)
+  } else if (request.method === "browser.close") {
     write({event: "browser.close_requested", params: {}})
   } else {
     write({id: request.id, result: true})
