@@ -3,9 +3,11 @@ defmodule ElvenGard.Playtest.EventCollector do
 
   use GenServer
 
+  @default_event_limit 2_048
+
   @type event :: %{name: String.t(), params: map()}
 
-  defstruct [:owner, events: []]
+  defstruct [:owner, events: :queue.new(), event_limit: @default_event_limit, failures: []]
 
   ## Public API
 
@@ -21,18 +23,41 @@ defmodule ElvenGard.Playtest.EventCollector do
 
   @impl true
   def init(opts) do
-    {:ok, %__MODULE__{owner: Keyword.fetch!(opts, :owner)}}
+    {:ok,
+     %__MODULE__{
+       owner: Keyword.fetch!(opts, :owner),
+       event_limit: Keyword.get(opts, :event_limit, @default_event_limit)
+     }}
   end
 
   @impl true
   def handle_call(:events, _from, state) do
-    {:reply, Enum.reverse(state.events), state}
+    events = :queue.to_list(state.events) ++ Enum.reverse(state.failures)
+    {:reply, events, state}
   end
 
   @impl true
   def handle_info({:playtest_event, driver, name, params} = message, state) do
     send(state.owner, message)
     event = %{name: name, params: Map.put(params, "driver", inspect(driver))}
-    {:noreply, %{state | events: [event | state.events]}}
+
+    if failure_event?(event) do
+      {:noreply, %{state | failures: [event | state.failures]}}
+    else
+      {:noreply, %{state | events: enqueue_bounded(state.events, event, state.event_limit)}}
+    end
   end
+
+  ## Private functions
+
+  defp enqueue_bounded(events, event, limit) do
+    events = :queue.in(event, events)
+    if :queue.len(events) > limit, do: events |> :queue.drop(), else: events
+  end
+
+  defp failure_event?(%{name: "page.error"}), do: true
+  defp failure_event?(%{name: "page.crash"}), do: true
+  defp failure_event?(%{name: "driver.protocol_error"}), do: true
+  defp failure_event?(%{name: "page.console", params: %{"level" => "error"}}), do: true
+  defp failure_event?(_event), do: false
 end
