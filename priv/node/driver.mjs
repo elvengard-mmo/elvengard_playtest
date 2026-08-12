@@ -218,6 +218,7 @@ const handlers = {
     await page.locator(params.selector).click({
       button: params.button,
       clickCount: params.click_count,
+      delay: params.delay,
       force: params.force,
       position: params.position,
       timeout: params.timeout,
@@ -226,7 +227,9 @@ const handlers = {
   },
 
   async "page.fill"(params) {
-    await pageFor(params).locator(params.selector).fill(params.value)
+    const locator = pageFor(params).locator(params.selector)
+    await locator.fill("")
+    await locator.pressSequentially(params.value, {delay: params.delay})
     return true
   },
 
@@ -459,8 +462,22 @@ const handlers = {
     return true
   },
 
+  async "keyboard.hold_for"(params) {
+    const page = pageFor(params)
+    await page.keyboard.down(params.key)
+
+    try {
+      await page.waitForTimeout(params.duration_ms)
+    } finally {
+      await page.keyboard.up(params.key)
+    }
+
+    return true
+  },
+
   async "keyboard.hold_until"(params) {
     const page = pageFor(params)
+    const startedAt = performance.now()
     await page.keyboard.down(params.key)
 
     try {
@@ -468,6 +485,8 @@ const handlers = {
         timeout: params.timeout,
         polling: params.polling,
       })
+      const remaining = params.minimum_duration_ms - (performance.now() - startedAt)
+      if (remaining > 0) await page.waitForTimeout(remaining)
     } finally {
       await page.keyboard.up(params.key)
     }
@@ -485,9 +504,24 @@ const handlers = {
     return true
   },
 
+  async "mouse.click"(params) {
+    const page = pageFor(params)
+    const input = {button: params.button, clickCount: params.click_count}
+    await page.mouse.down(input)
+
+    try {
+      await page.waitForTimeout(params.delay)
+    } finally {
+      await page.mouse.up(input)
+    }
+
+    return true
+  },
+
   async "mouse.hold_until"(params) {
     const page = pageFor(params)
     const input = {button: params.button, clickCount: params.click_count}
+    const startedAt = performance.now()
     await page.mouse.down(input)
 
     try {
@@ -495,6 +529,8 @@ const handlers = {
         timeout: params.timeout,
         polling: params.polling,
       })
+      const remaining = params.minimum_duration_ms - (performance.now() - startedAt)
+      if (remaining > 0) await page.waitForTimeout(remaining)
     } finally {
       await page.mouse.up(input)
     }

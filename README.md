@@ -7,7 +7,8 @@ Playtest keeps orchestration and assertions in Elixir while a supervised Node si
 ## Capabilities
 
 - real Chromium, Firefox and WebKit browsers;
-- independent `key_down` / `key_up`, condition-bounded key holds, synchronized key presses and timed or condition-bounded pointer holds;
+- human-paced DOM clicks, typing, key presses, pointer movement and mouse clicks by default;
+- independent `key_down` / `key_up`, timed or condition-bounded key and pointer holds for continuous game actions;
 - isolated multi-player sessions in one feature;
 - bounded asynchronous browser concurrency for stable CI runs;
 - semantic canvas assertions through `window.__gameTest`;
@@ -55,6 +56,35 @@ window.__gameTest?.register({
 ```
 
 Inputs are not exposed through the adapter. Tests send trusted input through Playwright.
+
+## Human-paced inputs
+
+High-level Page inputs use observable human timings by default so a real-time
+game cannot miss a press between two render frames:
+
+```elixir
+{:ok, true} = Page.click(page, "#join")
+{:ok, true} = Page.fill(page, "#player-name", "Alice")
+{:ok, true} = Page.key_press(page, "Space")
+{:ok, true} = Page.mouse_click(page)
+{:ok, true} = Page.key_hold_for(page, "KeyD", 250)
+```
+
+The defaults are centralized and can be configured without changing tests:
+
+```elixir
+config :elvengard_playtest, :human_input,
+  click_delay: 80,
+  key_press_delay: 80,
+  minimum_hold_duration: 80,
+  pointer_move_steps: 6,
+  typing_delay: 30
+```
+
+Each Page call also accepts the corresponding Playwright option (`:delay`,
+`:minimum_duration_ms` or `:steps`) when a product interaction needs a specific
+timing. Raw down/up primitives remain available for genuinely continuous input;
+use the high-level helpers for clicks and presses.
 
 ## ExUnit feature
 

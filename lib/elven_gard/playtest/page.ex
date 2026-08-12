@@ -3,7 +3,7 @@ defmodule ElvenGard.Playtest.Page do
   Drives one page with precise browser-level inputs suitable for real-time games.
   """
 
-  alias ElvenGard.Playtest.{CanvasVideo, Context, Options, Video}
+  alias ElvenGard.Playtest.{CanvasVideo, Context, HumanInput, Options, Video}
   alias ElvenGard.Playtest.Driver.Node
 
   @type t :: %__MODULE__{context: Context.t(), driver: pid(), id: String.t()}
@@ -41,13 +41,16 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec click(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def click(%__MODULE__{} = page, selector, opts \\ []) when is_binary(selector) do
+    opts = HumanInput.put_default(opts, :delay, :click_delay)
     command(page, "page.click", opts, %{"selector" => selector})
   end
 
-  @spec fill(t(), String.t(), String.t()) :: {:ok, true} | {:error, Node.error()}
-  def fill(%__MODULE__{} = page, selector, value)
+  @spec fill(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def fill(%__MODULE__{} = page, selector, value, opts \\ [])
       when is_binary(selector) and is_binary(value) do
-    command(page, "page.fill", [], %{"selector" => selector, "value" => value})
+    opts = HumanInput.put_default(opts, :delay, :typing_delay)
+    command(page, "page.fill", opts, %{"selector" => selector, "value" => value})
   end
 
   @spec visible?(t(), String.t()) :: {:ok, boolean()} | {:error, Node.error()}
@@ -100,6 +103,7 @@ defmodule ElvenGard.Playtest.Page do
 
   @spec key_press(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def key_press(%__MODULE__{} = page, key, opts \\ []) do
+    opts = HumanInput.put_default(opts, :delay, :key_press_delay)
     command(page, "keyboard.press", opts, %{"key" => key})
   end
 
@@ -107,19 +111,35 @@ defmodule ElvenGard.Playtest.Page do
           {:ok, true} | {:error, Node.error()}
   def key_press_when(%__MODULE__{} = page, key, expression, opts \\ [])
       when is_binary(key) and is_binary(expression) do
+    opts = HumanInput.put_default(opts, :delay, :key_press_delay)
     command(page, "keyboard.press_when", opts, %{"key" => key, "expression" => expression})
+  end
+
+  @spec key_hold_for(t(), String.t(), pos_integer(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def key_hold_for(%__MODULE__{} = page, key, duration_ms, opts \\ [])
+      when is_binary(key) and is_integer(duration_ms) and duration_ms > 0 do
+    command(page, "keyboard.hold_for", opts, %{"key" => key, "duration_ms" => duration_ms})
   end
 
   @spec key_hold_until(t(), String.t(), String.t(), Keyword.t()) ::
           {:ok, true} | {:error, Node.error()}
   def key_hold_until(%__MODULE__{} = page, key, expression, opts \\ [])
       when is_binary(key) and is_binary(expression) do
+    opts = HumanInput.put_default(opts, :minimum_duration_ms, :minimum_hold_duration)
     command(page, "keyboard.hold_until", opts, %{"key" => key, "expression" => expression})
   end
 
   @spec mouse_move(t(), number(), number(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_move(%__MODULE__{} = page, x, y, opts \\ []) when is_number(x) and is_number(y) do
+    opts = HumanInput.put_default(opts, :steps, :pointer_move_steps)
     command(page, "mouse.move", opts, %{"x" => x, "y" => y})
+  end
+
+  @spec mouse_click(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
+  def mouse_click(%__MODULE__{} = page, opts \\ []) do
+    opts = HumanInput.put_default(opts, :delay, :click_delay)
+    command(page, "mouse.click", opts)
   end
 
   @spec mouse_down(t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
@@ -128,6 +148,7 @@ defmodule ElvenGard.Playtest.Page do
   @spec mouse_hold_until(t(), String.t(), Keyword.t()) :: {:ok, true} | {:error, Node.error()}
   def mouse_hold_until(%__MODULE__{} = page, expression, opts \\ [])
       when is_binary(expression) do
+    opts = HumanInput.put_default(opts, :minimum_duration_ms, :minimum_hold_duration)
     command(page, "mouse.hold_until", opts, %{"expression" => expression})
   end
 
