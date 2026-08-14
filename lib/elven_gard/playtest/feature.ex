@@ -16,6 +16,7 @@ defmodule ElvenGard.Playtest.Feature do
 
   defmacro __using__(opts) do
     async = Keyword.get(opts, :async, false)
+    group = Keyword.get(opts, :group)
     feature_timeout = Keyword.get(opts, :feature_timeout, 60_000)
 
     unless feature_timeout == :infinity or
@@ -35,7 +36,7 @@ defmodule ElvenGard.Playtest.Feature do
     )
 
     quote do
-      use ExUnit.Case, async: unquote(async)
+      use ExUnit.Case, async: unquote(async), group: unquote(group)
 
       import ElvenGard.Playtest.Feature, only: [feature: 3]
 
