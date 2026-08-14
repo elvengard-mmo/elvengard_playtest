@@ -529,7 +529,7 @@ const handlers = {
     await page.mouse.down(input)
 
     try {
-      await page.waitForTimeout(params.duration)
+      if (params.duration > 0) await page.waitForTimeout(params.duration)
     } finally {
       await page.mouse.up(input)
     }

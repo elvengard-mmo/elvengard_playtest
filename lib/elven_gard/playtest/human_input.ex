@@ -10,7 +10,7 @@ defmodule ElvenGard.Playtest.HumanInput do
     click_delay: 80,
     key_press_delay: 80,
     minimum_hold_duration: 80,
-    mouse_click_duration: 32,
+    mouse_click_duration: 0,
     release_settle_delay: 40,
     pointer_move_delay: 40,
     pointer_move_steps: 6,
@@ -29,7 +29,7 @@ defmodule ElvenGard.Playtest.HumanInput do
 
   ## Public API
 
-  @spec default(option_name()) :: pos_integer()
+  @spec default(option_name()) :: non_neg_integer()
   def default(name) do
     :elvengard_playtest
     |> Application.get_env(:human_input, [])
