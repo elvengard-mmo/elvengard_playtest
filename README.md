@@ -78,6 +78,7 @@ config :elvengard_playtest, :human_input,
   click_delay: 80,
   key_press_delay: 80,
   minimum_hold_duration: 80,
+  mouse_click_duration: 32,
   release_settle_delay: 40,
   pointer_move_delay: 40,
   pointer_move_steps: 6,
@@ -85,9 +86,11 @@ config :elvengard_playtest, :human_input,
 ```
 
 Each Page call also accepts the corresponding Playwright option (`:delay`,
-`:minimum_duration_ms`, `:release_delay` or `:steps`) when a product interaction
-needs a specific timing. Composite holds and mouse clicks settle briefly after
-release so browser event handlers and realtime transports can observe the released
+`:duration`, `:minimum_duration_ms`, `:release_delay` or `:steps`) when a product
+interaction needs a specific timing. A mouse click keeps its physical down/up
+duration separate from the human pacing delay after release, so a loaded realtime
+game cannot mistake a click for a continuous hold. Composite inputs then settle
+briefly so browser event handlers and realtime transports can observe the released
 state before the next action. Raw down/up primitives remain available for genuinely
 continuous input; use the high-level helpers for clicks and presses.
 

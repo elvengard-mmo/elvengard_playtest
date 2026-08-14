@@ -529,11 +529,12 @@ const handlers = {
     await page.mouse.down(input)
 
     try {
-      await page.waitForTimeout(params.delay)
+      await page.waitForTimeout(params.duration)
     } finally {
       await page.mouse.up(input)
     }
 
+    await page.waitForTimeout(params.delay)
     await page.waitForTimeout(params.release_delay)
 
     return true

@@ -181,7 +181,7 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert page_click_finished_at - page_click_started_at >= 105
     assert key_press_finished_at - key_press_started_at >= 105
     assert key_hold_finished_at - key_hold_started_at >= 75
-    assert mouse_click_finished_at - mouse_click_started_at >= 105
+    assert mouse_click_finished_at - mouse_click_started_at >= 140
 
     [["button-down", clicked_at], ["button-up", click_released_at] | _rest] = pointer_events
     assert click_released_at - clicked_at >= 70
@@ -189,7 +189,8 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     [["pointerdown", clicked_at], ["pointerup", click_released_at] | _rest] =
       canvas_pointer_events
 
-    assert click_released_at - clicked_at >= 70
+    assert click_released_at - clicked_at >= 25
+    assert click_released_at - clicked_at < 70
 
     [["pointerdown", held_at], ["pointerup", released_at]] = Enum.take(pointer_events, -2)
     assert released_at - held_at >= 35

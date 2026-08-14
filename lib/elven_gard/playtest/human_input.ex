@@ -10,6 +10,7 @@ defmodule ElvenGard.Playtest.HumanInput do
     click_delay: 80,
     key_press_delay: 80,
     minimum_hold_duration: 80,
+    mouse_click_duration: 32,
     release_settle_delay: 40,
     pointer_move_delay: 40,
     pointer_move_steps: 6,
@@ -20,6 +21,7 @@ defmodule ElvenGard.Playtest.HumanInput do
           :click_delay
           | :key_press_delay
           | :minimum_hold_duration
+          | :mouse_click_duration
           | :release_settle_delay
           | :pointer_move_delay
           | :pointer_move_steps

@@ -169,6 +169,7 @@ defmodule ElvenGard.Playtest.Page do
   def mouse_click(%__MODULE__{} = page, opts \\ []) do
     opts =
       opts
+      |> HumanInput.put_default(:duration, :mouse_click_duration)
       |> HumanInput.put_default(:delay, :click_delay)
       |> HumanInput.put_default(:release_delay, :release_settle_delay)
 
