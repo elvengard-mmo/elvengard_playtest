@@ -64,6 +64,7 @@ game cannot miss a press between two render frames:
 
 ```elixir
 {:ok, true} = Page.click(page, "#join")
+{:ok, true} = Page.click_until(page, "#upgrade", "window.player.level === 2")
 {:ok, true} = Page.fill(page, "#player-name", "Alice")
 {:ok, true} = Page.paste(page, "#invitation-code", invitation)
 {:ok, true} = Page.key_press(page, "Space")
@@ -94,6 +95,11 @@ the test act faster than a person. Composite inputs then settle briefly so brows
 event handlers and realtime transports can observe the released state before the
 next action. Raw down/up primitives remain available for genuinely continuous
 input; use the high-level helpers for clicks and presses.
+
+Use `click_until/4` for reactive controls that replace themselves as soon as the
+server acknowledges the input. Playtest performs one actionability-checked pointer
+click and then waits for the supplied product-state expression, so a rerender cannot
+make Playwright retry an upgrade or report a timeout after it already succeeded.
 
 `fill/4` models human typing one character at a time. Use `paste/4` for opaque
 values a human would paste, such as invitation tokens, recovery codes or long

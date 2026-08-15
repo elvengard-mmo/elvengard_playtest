@@ -227,6 +227,39 @@ const handlers = {
     return true
   },
 
+  async "page.click_until"(params) {
+    const page = pageFor(params)
+    const locator = page.locator(params.selector)
+
+    await locator.click({
+      button: params.button,
+      clickCount: params.click_count,
+      force: params.force,
+      position: params.position,
+      timeout: params.timeout,
+      trial: true,
+    })
+
+    const box = await locator.boundingBox()
+    if (!box) throw new Error(`Clickable element has no bounding box: ${params.selector}`)
+
+    const x = box.x + (params.position?.x ?? box.width / 2)
+    const y = box.y + (params.position?.y ?? box.height / 2)
+
+    await page.mouse.click(x, y, {
+      button: params.button,
+      clickCount: params.click_count,
+      delay: params.delay,
+    })
+
+    await page.waitForFunction(params.expression, params.argument, {
+      timeout: params.timeout,
+      polling: params.polling,
+    })
+    await page.waitForTimeout(params.release_delay)
+    return true
+  },
+
   async "page.fill"(params) {
     const locator = pageFor(params).locator(params.selector)
     await locator.fill("")
