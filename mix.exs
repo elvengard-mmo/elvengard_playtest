@@ -5,7 +5,7 @@ defmodule ElvenGard.Playtest.MixProject do
     [
       app: :elvengard_playtest,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "ExUnit-native browser game testing powered by Playwright",

@@ -46,10 +46,10 @@ defmodule ElvenGard.Playtest.FeatureLifecycleTest do
 
     assert_receive {:feature_close_started, close_process}
     send(close_process, :continue_feature_close)
-    assert_receive {:playtest_event, ^driver, "driver.close_requested", _params}
     assert Task.yield(contender, 0) == nil
 
     assert :ok = Task.await(close_task)
+    assert_receive {:playtest_event, ^driver, "driver.close_requested", _params}
     assert_receive {:DOWN, ^reference, :process, ^driver, :normal}
     refute_receive {:playtest_event, ^driver, "browser.close_requested", _params}
     assert {:ok, _lease} = Task.await(contender)
