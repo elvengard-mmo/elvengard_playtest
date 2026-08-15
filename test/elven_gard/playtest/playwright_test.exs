@@ -93,6 +93,37 @@ defmodule ElvenGard.Playtest.PlaywrightTest do
     assert {:ok, page_click_started_at} = Page.evaluate(page, "performance.now()")
     assert {:ok, true} = Page.click(page, "#join")
     assert {:ok, page_click_finished_at} = Page.evaluate(page, "performance.now()")
+
+    assert {:ok, true} =
+             Page.evaluate(
+               page,
+               """
+               () => {
+                 window.reactiveClicks = 0
+                 const button = document.createElement('button')
+                 button.id = 'reactive-upgrade'
+                 button.textContent = 'Upgrade'
+                 button.addEventListener('click', () => {
+                   window.reactiveClicks += 1
+                   const replacement = button.cloneNode(true)
+                   replacement.disabled = true
+                   replacement.textContent = 'Max'
+                   button.replaceWith(replacement)
+                 })
+                 document.body.append(button)
+                 return true
+               }
+               """
+             )
+
+    assert {:ok, true} =
+             Page.click_until(
+               page,
+               "#reactive-upgrade",
+               "window.reactiveClicks === 1"
+             )
+
+    assert {:ok, 1} = Page.evaluate(page, "window.reactiveClicks")
     assert {:ok, true} = Page.fill(page, "#name", "Alice")
     assert {:ok, "Alice"} = Page.evaluate(page, "document.querySelector('#name').value")
     assert {:ok, true} = Page.paste(page, "#name", "opaque-invitation-token")

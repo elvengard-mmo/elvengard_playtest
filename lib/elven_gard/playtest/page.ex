@@ -49,6 +49,21 @@ defmodule ElvenGard.Playtest.Page do
     command(page, "page.click", opts, %{"selector" => selector})
   end
 
+  @spec click_until(t(), String.t(), String.t(), Keyword.t()) ::
+          {:ok, true} | {:error, Node.error()}
+  def click_until(%__MODULE__{} = page, selector, expression, opts \\ [])
+      when is_binary(selector) and is_binary(expression) do
+    opts =
+      opts
+      |> HumanInput.put_default(:delay, :click_delay)
+      |> HumanInput.put_default(:release_delay, :release_settle_delay)
+
+    command(page, "page.click_until", opts, %{
+      "selector" => selector,
+      "expression" => expression
+    })
+  end
+
   @spec fill(t(), String.t(), String.t(), Keyword.t()) ::
           {:ok, true} | {:error, Node.error()}
   def fill(%__MODULE__{} = page, selector, value, opts \\ [])
